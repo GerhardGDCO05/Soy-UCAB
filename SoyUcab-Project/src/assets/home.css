@@ -398,8 +398,20 @@
 }
 
 .action-btn:hover {
-  color: #333;
+  color: #000;
 }
+
+.portfolio-card {
+  margin-top: 12px;
+  background: #f8f9fa;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #eee;
+}
+.portfolio-card .portfolio-title { font-weight:700; margin-bottom:6px }
+.portfolio-card .portfolio-resumen { font-size:13px; color:#555 }
+.portfolio-editor input, .portfolio-editor textarea { width:100%; padding:8px; margin-bottom:6px; border-radius:6px; border:1px solid #ddd }
+.portfolio-editor button { padding:6px 10px }
 
 .delete-btn:hover {
   color: #f44336;

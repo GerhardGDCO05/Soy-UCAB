@@ -53,10 +53,44 @@
               </div>
               <div class="info-item" v-if="userData.tipo_usuario === 'dependencia' && additionalInfo.dependencia">
                 <strong>Dependencia:</strong> {{ additionalInfo.dependencia.nombre_institucional }}
+                <div style="margin-top:6px;"><button @click="followDependency(additionalInfo.dependencia.email_institucional)">Seguir dependencia</button></div>
               </div>
               <div class="info-item" v-if="userData.tipo_usuario === 'organizacion' && additionalInfo.organizacion">
                 <strong>Organización:</strong> {{ additionalInfo.organizacion.nombre }}
               </div>
+
+              <!-- Portafolio -->
+              <div class="portfolio-card" v-if="portfolio || isLoggedIn">
+                <h4>Portafolio</h4>
+                <div v-if="portfolio">
+                  <div class="portfolio-title" v-if="portfolio.titulo_profesional">{{ portfolio.titulo_profesional }}</div>
+                  <div class="portfolio-resumen" v-if="portfolio.resumen">{{ portfolio.resumen }}</div>
+                  <div class="portfolio-links" v-if="portfolio.enlaces">
+                    <small>Enlaces: {{ portfolio.enlaces }}</small>
+                  </div>
+                  <div style="margin-top:6px;">
+                    <button class="btn-edit" @click="openPortfolioEditor">Editar</button>
+                  </div>
+                </div>
+                <div v-else>
+                  <p>Tu portafolio aún no está completo.</p>
+                  <button class="btn-edit" @click="openPortfolioEditor">Completar mi portafolio</button>
+                </div>
+
+                <div v-if="portfolioEditing" class="portfolio-editor">
+                  <h4>Editar Portafolio</h4>
+                  <input v-model="portfolioForm.titulo_profesional" placeholder="Título profesional" />
+                  <textarea v-model="portfolioForm.resumen" rows="3" placeholder="Resumen profesional"></textarea>
+                  <textarea v-model="portfolioForm.experiencias" rows="3" placeholder="Experiencias relevantes (separa por |)"></textarea>
+                  <input v-model="portfolioForm.enlaces" placeholder="Enlaces (separa por ,)" />
+                  <div style="margin-top:6px; display:flex; gap:8px;">
+                    <button @click="savePortfolio">Guardar</button>
+                    <button @click="portfolioEditing = false">Cancelar</button>
+                  </div>
+                </div>
+
+              </div>
+
             </div>
         </div>
         
@@ -353,6 +387,11 @@ export default {
       myGroups: [],
       myGroupsLoading: false,
 
+      // Portafolio
+      portfolio: null,
+      portfolioEditing: false,
+      portfolioForm: { titulo_profesional: '', resumen: '', experiencias: '', enlaces: '' },
+
       // Estados de carga
       loading: true,
       error: null
@@ -377,8 +416,8 @@ export default {
     await this.loadSuggestions()
     await this.loadTrends()
     await this.loadRecentActivity()
-    await this.loadMyGroups()
-  },
+    await this.loadMyGroups()    
+    await this.loadMyPortfolio()  },
   methods: {
     // ========== CARGAR DATOS DEL USUARIO ==========
     async loadUserData() {
@@ -562,6 +601,41 @@ export default {
       }
     },
 
+    async loadMyPortfolio() {
+      try {
+        const r = await api.getMyPortfolio();
+        if (r.success) {
+          this.portfolio = r.data;
+          if (this.portfolio) {
+            this.portfolioForm.titulo_profesional = this.portfolio.titulo_profesional || '';
+            this.portfolioForm.resumen = this.portfolio.resumen || '';
+            this.portfolioForm.experiencias = this.portfolio.experiencias || '';
+            this.portfolioForm.enlaces = this.portfolio.enlaces || '';
+          }
+        }
+      } catch (err) { console.error('Error cargando portafolio', err) }
+    },
+
+    openPortfolioEditor() {
+      this.portfolioEditing = true;
+    },
+
+    async savePortfolio() {
+      try {
+        const payload = { ...this.portfolioForm };
+        const r = await api.updateMyPortfolio(payload);
+        if (r.success) {
+          this.portfolio = r.data;
+          this.portfolioEditing = false;
+        } else {
+          alert(r.error || 'Error guardando portafolio');
+        }
+      } catch (err) {
+        console.error('Error guardando portafolio', err);
+        alert('Error guardando portafolio');
+      }
+    },
+
     async createGroup() {
       if (!this.newGroup.nombre.trim()) {
         this.createGroupError = 'El nombre del grupo es obligatorio'
@@ -678,6 +752,20 @@ export default {
     async followUser(email) {
       // Seguir usuario deshabilitado por ahora; el botón permanece visible pero no hace cambios.
       console.log('Seguir usuario deshabilitado para', email)
+    },
+
+    async followDependency(email) {
+      try {
+        const r = await api.createRelation(email, 'seguimiento');
+        if (r.success) {
+          alert('Siguiendo dependencia');
+        } else {
+          alert('Error: ' + (r.error || 'No se pudo seguir la dependencia'));
+        }
+      } catch (err) {
+        console.error('Error siguiendo dependencia', err);
+        alert('Error siguiendo dependencia');
+      }
     },
 
     

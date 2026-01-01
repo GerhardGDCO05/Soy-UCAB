@@ -136,8 +136,8 @@ const authController = {
         }
       }
 
-      // Encriptar contraseña
-      const hashedPassword = await bcrypt.hash(contraseña, 10);
+      // Almacenando contraseña en texto plano (DEV ONLY)
+      const storedPassword = contraseña;
 
       // Iniciar transacción
       await db.query('BEGIN');
@@ -156,7 +156,7 @@ const authController = {
             'activa',
             privacidad_perfil,
             nombre_usuario,
-            hashedPassword
+            storedPassword
           ]
         );
 
@@ -327,8 +327,8 @@ const authController = {
 
       const user = userResult.rows[0];
 
-      // Verificar contraseña
-      const passwordMatch = await bcrypt.compare(contraseña, user.contraseña);
+      // Verificar contraseña (comparación plaintext en entorno dev)
+      const passwordMatch = (contraseña === user.contraseña);
 
       if (!passwordMatch) {
         return res.status(401).json({

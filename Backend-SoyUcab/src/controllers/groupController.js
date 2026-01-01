@@ -191,6 +191,173 @@ const groupController = {
         }
     },
 
+    // GET /api/groups/:name/members - Obtener miembros del grupo
+    async getGroupMembers(req, res) {
+        try {
+            const { name } = req.params;
+            const requester = req.user && req.user.email;
+
+            // Verificar si el grupo es público o si el requester es miembro
+            const groupRes = await db.query(`SELECT estado FROM soyucab.grupo WHERE nombre = $1`, [name]);
+            if (groupRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Grupo no encontrado' });
+
+            const estado = groupRes.rows[0].estado;
+            if (estado !== 'publico') {
+                if (!requester) return res.status(401).json({ success: false, error: 'Autenticación requerida' });
+                const memRes = await db.query(`SELECT * FROM soyucab.pertenece_a_grupo WHERE nombre_grupo = $1 AND email_miembro = $2 AND estado_participante = 'activo'`, [name, requester]);
+                if (memRes.rows.length === 0) return res.status(403).json({ success: false, error: 'Acceso denegado: solo miembros pueden ver la lista' });
+            }
+
+            const membersRes = await db.query(
+                `SELECT pag.email_miembro, pag.rol_grupo, pag.fecha_union, pag.estado_participante, m.nombre_usuario, p.nombres, p.apellidos
+                 FROM soyucab.pertenece_a_grupo pag
+                 LEFT JOIN soyucab.miembro m ON pag.email_miembro = m.email
+                 LEFT JOIN soyucab.persona p ON pag.email_miembro = p.email_persona
+                 WHERE pag.nombre_grupo = $1`,
+                [name]
+            );
+
+            res.json({ success: true, count: membersRes.rows.length, data: membersRes.rows });
+        } catch (error) {
+            console.error('Error obteniendo miembros del grupo:', error);
+            res.status(500).json({ success: false, error: 'Error al obtener miembros del grupo' });
+        }
+    },
+
+    // POST /api/groups/:name/posts - Crear publicación en grupo (miembros activos)
+    async createGroupPost(req, res) {
+        try {
+            const { name } = req.params;
+            const author = req.user && req.user.email;
+            if (!author) return res.status(401).json({ success: false, error: 'Autenticación requerida' });
+
+            // Verificar pertenencia activa
+            const memRes = await db.query(
+                `SELECT * FROM soyucab.pertenece_a_grupo WHERE nombre_grupo = $1 AND email_miembro = $2 AND estado_participante = 'activo'`,
+                [name, author]
+            );
+            if (memRes.rows.length === 0) {
+                return res.status(403).json({ success: false, error: 'No eres miembro activo del grupo' });
+            }
+
+            const { caption, tipo_contenido, descripcion_publicacion, configuracion_privacidad } = req.body;
+
+            const insertRes = await db.query(
+                `INSERT INTO soyucab.publicacion (caption, tipo_contenido, descripcion_publicacion, configuracion_privacidad, email_publicador, nombre_grupo_publicado)
+                 VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+                [caption || null, tipo_contenido || null, descripcion_publicacion || null, configuracion_privacidad || null, author, name]
+            );
+
+            res.status(201).json({ success: true, data: insertRes.rows[0] });
+        } catch (error) {
+            console.error('Error creando publicación:', error);
+            res.status(500).json({ success: false, error: 'Error al crear publicación' });
+        }
+    },
+
+    // PUT /api/groups/:name/posts - Actualizar publicación (autor o admin)
+    async updateGroupPost(req, res) {
+        try {
+            const { name } = req.params;
+            const { email_publicador, fecha_publicacion } = req.body;
+            const requester = req.user && req.user.email;
+            if (!requester) return res.status(401).json({ success: false, error: 'Autenticación requerida' });
+
+            // Verificar existencia
+            const postRes = await db.query(`SELECT * FROM soyucab.publicacion WHERE email_publicador = $1 AND fecha_publicacion = $2 AND nombre_grupo_publicado = $3`, [email_publicador, fecha_publicacion, name]);
+            if (postRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Publicación no encontrada' });
+
+            // Verificar permisos (autor o admin)
+            const isAuthor = requester === email_publicador;
+            const adminRes = await db.query(`SELECT * FROM soyucab.pertenece_a_grupo WHERE nombre_grupo = $1 AND email_miembro = $2 AND rol_grupo = 'administrador' AND estado_participante = 'activo'`, [name, requester]);
+            if (!isAuthor && adminRes.rows.length === 0) return res.status(403).json({ success: false, error: 'Acceso denegado' });
+
+            const allowed = ['caption', 'descripcion_publicacion', 'tipo_contenido', 'configuracion_privacidad'];
+            const updates = {};
+            allowed.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
+
+            if (Object.keys(updates).length === 0) return res.status(400).json({ success: false, error: 'No hay campos para actualizar' });
+
+            const setClause = Object.keys(updates).map((k, i) => `${k} = $${i + 4}`).join(', ');
+            const values = [email_publicador, fecha_publicacion, name, ...Object.values(updates)];
+
+            const updated = await db.query(`UPDATE soyucab.publicacion SET ${setClause} WHERE email_publicador = $1 AND fecha_publicacion = $2 AND nombre_grupo_publicado = $3 RETURNING *`, values);
+
+            res.json({ success: true, data: updated.rows[0] });
+        } catch (error) {
+            console.error('Error actualizando publicación:', error);
+            res.status(500).json({ success: false, error: 'Error al actualizar publicación' });
+        }
+    },
+
+    // DELETE /api/groups/:name/posts - Eliminar publicación (autor o admin)
+    async deleteGroupPost(req, res) {
+        try {
+            const { name } = req.params;
+            const { email_publicador, fecha_publicacion } = req.body;
+            const requester = req.user && req.user.email;
+            if (!requester) return res.status(401).json({ success: false, error: 'Autenticación requerida' });
+
+            const postRes = await db.query(`SELECT * FROM soyucab.publicacion WHERE email_publicador = $1 AND fecha_publicacion = $2 AND nombre_grupo_publicado = $3`, [email_publicador, fecha_publicacion, name]);
+            if (postRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Publicación no encontrada' });
+
+            const isAuthor = requester === email_publicador;
+            const adminRes = await db.query(`SELECT * FROM soyucab.pertenece_a_grupo WHERE nombre_grupo = $1 AND email_miembro = $2 AND rol_grupo = 'administrador' AND estado_participante = 'activo'`, [name, requester]);
+            if (!isAuthor && adminRes.rows.length === 0) return res.status(403).json({ success: false, error: 'Acceso denegado' });
+
+            await db.query(`DELETE FROM soyucab.publicacion WHERE email_publicador = $1 AND fecha_publicacion = $2 AND nombre_grupo_publicado = $3`, [email_publicador, fecha_publicacion, name]);
+
+            res.json({ success: true, message: 'Publicación eliminada' });
+        } catch (error) {
+            console.error('Error eliminando publicación:', error);
+            res.status(500).json({ success: false, error: 'Error al eliminar publicación' });
+        }
+    },
+
+    // POST /api/groups/:name/posts/:email/:fecha/like - Registrar like
+    async likePost(req, res) {
+        try {
+            const { name, email, fecha } = req.params;
+            const liker = req.user && req.user.email;
+            if (!liker) return res.status(401).json({ success: false, error: 'Autenticación requerida' });
+
+            // Verificar que la publicación exista y pertenezca al grupo
+            const postRes = await db.query(`SELECT * FROM soyucab.publicacion WHERE email_publicador = $1 AND fecha_publicacion = $2 AND nombre_grupo_publicado = $3`, [email, fecha, name]);
+            if (postRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Publicación no encontrada' });
+
+            // Insertar like (ON CONFLICT DO NOTHING)
+            await db.query(`INSERT INTO soyucab.me_gusta (email_miembro_gusta, email_publicador_publicacion, fecha_publicacion_publicacion) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [liker, email, fecha]);
+
+            res.json({ success: true, message: 'Like registrado' });
+        } catch (error) {
+            console.error('Error registrando like:', error);
+            res.status(500).json({ success: false, error: 'Error registrando like' });
+        }
+    },
+
+    // POST /api/groups/:name/posts/:email/:fecha/comments - Agregar comentario
+    async commentPost(req, res) {
+        try {
+            const { name, email, fecha } = req.params;
+            const commenter = req.user && req.user.email;
+            if (!commenter) return res.status(401).json({ success: false, error: 'Autenticación requerida' });
+
+            const { contenido } = req.body;
+            if (!contenido) return res.status(400).json({ success: false, error: 'Contenido requerido' });
+
+            // Verificar que la publicación exista
+            const postRes = await db.query(`SELECT * FROM soyucab.publicacion WHERE email_publicador = $1 AND fecha_publicacion = $2 AND nombre_grupo_publicado = $3`, [email, fecha, name]);
+            if (postRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Publicación no encontrada' });
+
+            await db.query(`INSERT INTO soyucab.comentario (email_comentador, email_creador_publicacion, fecha_creacion_publicacion, contenido) VALUES ($1, $2, $3, $4)`, [commenter, email, fecha, contenido]);
+
+            res.status(201).json({ success: true, message: 'Comentario agregado' });
+        } catch (error) {
+            console.error('Error agregando comentario:', error);
+            res.status(500).json({ success: false, error: 'Error agregando comentario' });
+        }
+    },
+
     // PUT /api/groups/:name - Actualizar datos del grupo (solo administradores)
     async updateGroup(req, res) {
         try {

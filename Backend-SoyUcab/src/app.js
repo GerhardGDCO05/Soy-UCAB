@@ -8,6 +8,8 @@ const authRoutes = require('./routes/authRoutes');
 const memberRoutes = require('./routes/memberRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const groupRoutes = require('./routes/groupRoutes');
+const relationRoutes = require('./routes/relationRoutes');
+const portfolioRoutes = require('./routes/portfolioRoutes');
 
 const app = express();
 
@@ -146,6 +148,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/members', memberRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/groups', groupRoutes);
+app.use('/api/relations', relationRoutes);
+app.use('/api/portfolio', portfolioRoutes);
 
 // Ruta no encontrada
 app.use((req, res) => {

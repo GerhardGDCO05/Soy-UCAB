@@ -422,8 +422,8 @@ const memberController = {
         });
       }
 
-      // Encriptar contraseña
-      const hashedPassword = await bcrypt.hash(contraseña, 10);
+      // Almacenando contraseña en texto plano (DEV ONLY)
+      const storedPassword = contraseña;
 
       await db.query('BEGIN');
 
@@ -441,7 +441,7 @@ const memberController = {
             estado_cuenta,
             privacidad_perfil,
             nombre_usuario,
-            hashedPassword
+            storedPassword
           ]
         );
 
@@ -817,17 +817,17 @@ const memberController = {
               return res.status(400).json({ success: false, error: 'Se requiere la contraseña actual para cambiar la contraseña' });
             }
             const pwRes = await db.query('SELECT contraseña FROM soyucab.miembro WHERE email = $1', [email]);
-            const storedHash = pwRes.rows[0].contraseña;
-            const match = await bcrypt.compare(updates.currentPassword, storedHash);
+            const storedPassword = pwRes.rows[0].contraseña;
+            const match = updates.currentPassword === storedPassword;
             if (!match) {
               return res.status(401).json({ success: false, error: 'Contraseña actual incorrecta' });
             }
           }
 
-          const hashedPassword = await bcrypt.hash(updates.contraseña, 10);
+          // Guardar nueva contraseña en texto plano (DEV ONLY)
           await db.query(
             'UPDATE soyucab.miembro SET contraseña = $1 WHERE email = $2',
-            [hashedPassword, email]
+            [updates.contraseña, email]
           );
 
           // Eliminar currentPassword del body por seguridad

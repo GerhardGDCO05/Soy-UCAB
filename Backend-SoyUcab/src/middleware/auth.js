@@ -51,39 +51,19 @@ const authMiddleware = {
     }
   },
 
-  // Verificar si el usuario es el mismo o es admin
+  // Verificar si el usuario es el mismo (owner)
   isOwnerOrAdmin: async (req, res, next) => {
     try {
       const { email } = req.params;
-      const userEmail = req.user.email;
+      const userEmail = req.user && req.user.email;
       
-      // Si el usuario es el dueño del recurso
-      if (email === userEmail) {
-        return next();
-      }
-      
-      // Verificar si es administrador (puedes definir tu lógica de admin)
-      const adminCheck = await db.query(
-        `SELECT 1 FROM soyucab.miembro 
-         WHERE email = $1 AND estado_cuenta = 'activa'`,
-        [userEmail]
-      );
-      
-      if (adminCheck.rows.length > 0) {
-        return next();
-      }
-      
-      return res.status(403).json({
-        success: false,
-        error: 'Acceso denegado. No tienes permisos para esta acción.'
-      });
-      
+      // Solo el propietario puede proceder
+      if (email === userEmail) return next();
+
+      return res.status(403).json({ success: false, error: 'Acceso denegado. Solo el propietario puede realizar esta acción.' });
     } catch (error) {
       console.error('Error verificando permisos:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Error al verificar permisos'
-      });
+      res.status(500).json({ success: false, error: 'Error al verificar permisos' });
     }
   }
 };

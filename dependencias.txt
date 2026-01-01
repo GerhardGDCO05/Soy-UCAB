@@ -1,0 +1,15 @@
+para el BACK
+
+npm install express cors pg bcrypt jsonwebtoken dotenv axios
+npm install --save-dev nodemon
+npm install bcrypt
+
+
+
+Para el FRONT
+npm create vue@latest
+npm install vue-router@4
+npm install axios
+npm install
+
+npm install leaflet

@@ -50,6 +50,27 @@
         </ul>
       </div>
 
+      <div class="group-members">
+        <h3>Miembros</h3>
+        <div v-if="membersLoading">Cargando miembros...</div>
+        <div v-else-if="members.length === 0">No hay miembros.</div>
+        <ul v-else>
+          <li v-for="m in members" :key="m.email_miembro">{{ m.nombre_usuario || m.email_miembro }} <small>({{ m.rol_grupo }})</small></li>
+        </ul>
+      </div>
+
+      <div v-if="isMember" class="group-create-post">
+        <h3>Crear publicación</h3>
+        <div class="create-post-form">
+          <input type="text" placeholder="Titulo o caption" v-model="newPost.caption" />
+          <textarea rows="3" placeholder="Escribe tu publicación..." v-model="newPost.descripcion_publicacion"></textarea>
+          <div>
+            <button @click="createPost" :disabled="posting">Publicar</button>
+          </div>
+          <div v-if="postError" class="error">{{ postError }}</div>
+        </div>
+      </div>
+
       <div class="group-posts">
         <h3>Publicaciones</h3>
         <div v-if="postsLoading">Cargando publicaciones...</div>
@@ -63,6 +84,12 @@
             <div class="post-body">
               <div v-if="p.caption"><em>{{ p.caption }}</em></div>
               <div v-if="p.descripcion_publicacion">{{ p.descripcion_publicacion }}</div>
+            </div>
+            <div class="post-actions">
+              <button @click="likePost(p)">👍 Like</button>
+              <button v-if="canEditPost(p)" @click="startEditPost(p)">Editar</button>
+              <button v-if="canEditPost(p)" @click="deletePost(p)">Eliminar</button>
+              <button @click="promptComment(p)">Comentar</button>
             </div>
           </li>
         </ul>
@@ -84,9 +111,19 @@ export default {
     return {
       group: {},
       posts: [],
+      members: [],
       loading: true,
       postsLoading: false,
+      membersLoading: false,
       error: null,
+
+      // new post
+      newPost: {
+        caption: '',
+        descripcion_publicacion: ''
+      },
+      posting: false,
+      postError: null,
 
       // edit state
       isEditing: false,
@@ -97,8 +134,7 @@ export default {
   },
   async mounted() {
     await this.load();
-  },
-  computed: {
+  },  computed: {
     currentUser() {
       try {
         return JSON.parse(localStorage.getItem('user') || '{}');

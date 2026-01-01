@@ -540,6 +540,109 @@ export default {
     }
   },
 
+  async getGroupMembers(groupName) {
+    try {
+      const response = await api.get(`/groups/${encodeURIComponent(groupName)}/members`);
+      return { success: true, data: response.data.data, count: response.data.count };
+    } catch (error) {
+      console.error('Error obteniendo miembros de grupo:', error.response?.data || error.message);
+      return { success: false, error: error.response?.data?.error || 'Error obteniendo miembros de grupo', data: [] };
+    }
+  },
+
+  async createGroupPost(groupName, postData) {
+    try {
+      const response = await api.post(`/groups/${encodeURIComponent(groupName)}/posts`, postData);
+      return { success: true, data: response.data.data };
+    } catch (error) {
+      console.error('Error creando publicación de grupo:', error.response?.data || error.message);
+      return { success: false, error: error.response?.data?.error || 'Error creando publicación' };
+    }
+  },
+
+  async updateGroupPost(groupName, postIdentifier, updates) {
+    try {
+      const body = { ...postIdentifier, ...updates };
+      const response = await api.put(`/groups/${encodeURIComponent(groupName)}/posts`, body);
+      return { success: true, data: response.data.data };
+    } catch (error) {
+      console.error('Error actualizando publicación:', error.response?.data || error.message);
+      return { success: false, error: error.response?.data?.error || 'Error actualizando publicación' };
+    }
+  },
+
+  async deleteGroupPost(groupName, postIdentifier) {
+    try {
+      const response = await api.delete(`/groups/${encodeURIComponent(groupName)}/posts`, { data: postIdentifier });
+      return { success: true, message: response.data.message };
+    } catch (error) {
+      console.error('Error eliminando publicación:', error.response?.data || error.message);
+      return { success: false, error: error.response?.data?.error || 'Error eliminando publicación' };
+    }
+  },
+
+  async likePost(groupName, postIdentifier) {
+    try {
+      const { email_publicador, fecha_publicacion } = postIdentifier;
+      const response = await api.post(`/groups/${encodeURIComponent(groupName)}/posts/${encodeURIComponent(email_publicador)}/${encodeURIComponent(fecha_publicacion)}/like`);
+      return { success: true, message: response.data.message };
+    } catch (error) {
+      console.error('Error dando like:', error.response?.data || error.message);
+      return { success: false, error: error.response?.data?.error || 'Error dando like' };
+    }
+  },
+
+  async commentPost(groupName, postIdentifier, contenido) {
+    try {
+      const { email_publicador, fecha_publicacion } = postIdentifier;
+      const response = await api.post(`/groups/${encodeURIComponent(groupName)}/posts/${encodeURIComponent(email_publicador)}/${encodeURIComponent(fecha_publicacion)}/comments`, { contenido });
+      return { success: true, message: response.data.message };
+    } catch (error) {
+      console.error('Error comentando publicación:', error.response?.data || error.message);
+      return { success: false, error: error.response?.data?.error || 'Error comentando publicación' };
+    }
+  },
+
+  async createRelation(usuario_destino, tipo) {
+    try {
+      const response = await api.post('/relations', { usuario_destino, tipo });
+      return { success: true, data: response.data.data };
+    } catch (error) {
+      console.error('Error creando relación:', error.response?.data || error.message);
+      return { success: false, error: error.response?.data?.error || 'Error creando relación' };
+    }
+  },
+
+  async getMyRelations() {
+    try {
+      const response = await api.get('/relations/me');
+      return { success: true, data: response.data.data, count: response.data.count };
+    } catch (error) {
+      console.error('Error obteniendo relaciones:', error.response?.data || error.message);
+      return { success: false, error: error.response?.data?.error || 'Error obteniendo relaciones', data: [] };
+    }
+  },
+
+  async getMyPortfolio() {
+    try {
+      const response = await api.get('/portfolio/me');
+      return { success: true, data: response.data.data };
+    } catch (error) {
+      console.error('Error obteniendo portafolio:', error.response?.data || error.message);
+      return { success: false, error: error.response?.data?.error || 'Error obteniendo portafolio' };
+    }
+  },
+
+  async updateMyPortfolio(payload) {
+    try {
+      const response = await api.put('/portfolio/me', payload);
+      return { success: true, data: response.data.data };
+    } catch (error) {
+      console.error('Error actualizando portafolio:', error.response?.data || error.message);
+      return { success: false, error: error.response?.data?.error || 'Error actualizando portafolio' };
+    }
+  },
+
   // ==================== UTILITIES ====================
   
   isAuthenticated() {
