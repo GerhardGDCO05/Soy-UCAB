@@ -18,6 +18,10 @@
             <h2>Reportes</h2>
           </div>
         </button>
+         <button @click="handleLogout" class="logout-btn">
+            <i class="fas fa-sign-out-alt"></i>
+              Cerrar Sesión
+          </button>
       </div>
     </header>
 
@@ -121,12 +125,17 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import service from '../../services/usuarioServices';
+import service from '../../services/usuarioServices'; // Tu servicio de API
 import { reportButtom, Home } from '@/services/metodosGenerales';
 import { useRouter } from 'vue-router';
 import 'leaflet/dist/leaflet.css';
 
 const router = useRouter();
+
+const handleLogout = () => {
+  service.logout();
+  window.location.href = '/principalview';     
+};
 const gotoProfile = () => router.push('/profile');
 
 // Variables reactivas
@@ -335,8 +344,6 @@ let markers = [];
     'Vaticano': { code: 'VA', coordinates: [41.9029, 12.4534] }
 
   };
-
-  
 
 // Computed properties
 const totalEgresados = computed(() => egresados.value.length || 0);

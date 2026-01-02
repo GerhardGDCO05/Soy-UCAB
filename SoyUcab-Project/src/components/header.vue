@@ -20,12 +20,17 @@
                 <h2>Reportes</h2>
                 </div>
             </button>
+            <button @click="handleLogout" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i>
+                Cerrar Sesión
+            </button>
         </div>
     </header>
 </template>
 
 <script>
 import { reportButtom, Home } from '@/services/metodosGenerales';
+import api from '../services/usuarioServices.js'
 
 export default {
     name: 'HeaderBar',
@@ -40,6 +45,10 @@ export default {
             if (this.$route.path !== '/profile') {
             this.$router.push('/profile');
             }
+        },
+        handleLogout() {
+            api.logout();
+            window.location.href = '/principalview';
         }
     }
 };

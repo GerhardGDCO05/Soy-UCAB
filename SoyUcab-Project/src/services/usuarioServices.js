@@ -53,7 +53,14 @@ export default {
       return { success: false, error: error.message || 'Error en el login' };
     }
   },
+  logout() {
+    localStorage.removeItem('user'); // Elimina los datos del usuario
+  },
 
+  isAuthenticated() {
+    const user = localStorage.getItem('user');
+    return !!user; // Retorna true si existe, false si no
+  },
   // ==================== AUTH UTILS ====================
 
   async verifyAuth() {

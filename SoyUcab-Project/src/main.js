@@ -6,6 +6,7 @@ import './assets/reportes/map.css'
 import './assets/principal.css'
 import './assets/reportes/allReports.css'
 import './assets/home.css'
+import './assets/header.css'
 import router from './router/router'
 import App from './App.vue'
 
