@@ -25,7 +25,7 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/groups/:name',
+    path: '/groupdashboard/:name',
     name: 'GroupDashboard',
     component: () => import('../components/GroupDashboard.vue'),
     meta: { requiresAuth: true }
@@ -70,11 +70,11 @@ router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth && !isLogged) {
     console.warn('Acceso denegado: Se requiere inicio de sesión');
     next('/principalview'); // Redirigir al login/landing
-  } 
+  }
   // Si el usuario ya está logueado e intenta ir al login/landing
   else if (to.path === '/principalview' && isLogged) {
     next('/home'); // Redirigir al home
-  } 
+  }
   else {
     next(); // Permitir el paso
   }

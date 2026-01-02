@@ -776,28 +776,57 @@ CREATE TABLE soyucab.tipo_de_relacion (
         ON DELETE CASCADE
 );
 
+-- 1. Tabla Principal de Comentarios
 CREATE TABLE soyucab.comentario (
+    -- Quien comenta
     email_comentador VARCHAR(50) NOT NULL,
+    
+    -- Referencia a la publicación original (PK de la tabla publicacion)
     email_creador_publicacion VARCHAR(50) NOT NULL,
     fecha_creacion_publicacion TIMESTAMP WITHOUT TIME ZONE NOT NULL,
-    fecha_creacion TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+    
+    -- Identificador único del comentario (Fundamental en la PK)
+    fecha_creacion TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW() NOT NULL,
+    
+    -- Contenido y auditoría
     contenido TEXT NOT NULL,
     fecha_actualizacion TIMESTAMP WITHOUT TIME ZONE,
-    estado_comentario soyucab.estado_comentario DEFAULT 'visible',
     editado BOOLEAN DEFAULT FALSE,
-    
-    PRIMARY KEY (email_comentador, email_creador_publicacion, fecha_creacion_publicacion),
-    
+    estado_comentario VARCHAR(20) DEFAULT 'visible',
+
+    -- PK Compuesta por 4 campos para permitir múltiples comentarios del mismo usuario en el mismo post
+    PRIMARY KEY (email_comentador, email_creador_publicacion, fecha_creacion_publicacion, fecha_creacion),
+
+    -- Relación con el Miembro que comenta
     CONSTRAINT fk_comentario_miembro
         FOREIGN KEY (email_comentador)
         REFERENCES soyucab.miembro(email)
         ON DELETE CASCADE,
-        
+
+    -- Relación con la Publicación (usa los dos campos que definen un post)
     CONSTRAINT fk_comentario_publicacion
         FOREIGN KEY (email_creador_publicacion, fecha_creacion_publicacion)
         REFERENCES soyucab.publicacion(email_publicador, fecha_publicacion)
         ON DELETE CASCADE
 );
+
+
+CREATE TABLE soyucab.envia_una (
+    email_comentador VARCHAR(50) NOT NULL,
+    email_creador_publicacion VARCHAR(50) NOT NULL,
+    fecha_creacion_publicacion TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    fecha_creacion_comentario TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    email_destino VARCHAR(50),
+    
+    fecha_envio TIMESTAMP DEFAULT NOW(),
+    PRIMARY KEY (email_creador_publicacion, email_comentador, fecha_creacion_publicacion, email_destino,fecha_envio ),
+
+    CONSTRAINT fk_envia_una_comentario
+        FOREIGN KEY (email_comentador, email_creador_publicacion, fecha_creacion_publicacion, fecha_creacion_comentario)
+        REFERENCES soyucab.comentario (email_comentador, email_creador_publicacion, fecha_creacion_publicacion, fecha_creacion)
+        ON DELETE CASCADE
+);
+
 
 CREATE TABLE soyucab.encuesta (
     tipo_encuesta VARCHAR(50),
@@ -908,25 +937,7 @@ CREATE TABLE soyucab.relacion_envia (
         ON DELETE CASCADE
 );
 
-CREATE TABLE soyucab.envia_una (
-    email_creador_publicacion VARCHAR(50),
-    email_comentador VARCHAR(50),
-    fecha_creacion_publicacion TIMESTAMP WITHOUT TIME ZONE,
-    email_destino VARCHAR(50),
-    fecha_hora TIMESTAMP WITHOUT TIME ZONE,
-    
-    PRIMARY KEY (email_creador_publicacion, email_comentador, fecha_creacion_publicacion, email_destino, fecha_hora),
-    
-    CONSTRAINT fk_envia_una_comentario
-        FOREIGN KEY (email_creador_publicacion, email_comentador, fecha_creacion_publicacion)
-        REFERENCES soyucab.comentario(email_creador_publicacion, email_comentador, fecha_creacion_publicacion)
-        ON DELETE CASCADE,
-        
-    CONSTRAINT fk_envia_una_notificacion
-        FOREIGN KEY (email_destino, email_comentador, fecha_hora)
-        REFERENCES soyucab.notificacion(email_destino, email_envia, fecha_hora)
-        ON DELETE CASCADE
-);
+
 
 -- Crear tipo ENUM para visibilidad
 CREATE TYPE soyucab.visibilidad_portafolio AS ENUM ('Publico', 'Privado');

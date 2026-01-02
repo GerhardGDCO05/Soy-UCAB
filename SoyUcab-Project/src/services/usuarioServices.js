@@ -2,12 +2,12 @@ import api from './ApiServices';
 
 export default {
   // ==================== AUTHENTICATION ====================
-  
+
   async registerUser(userData) {
     try {
       let endpoint;
       let formattedData = { ...userData };
-      
+
       if (userData.tipo_entidad && (userData.tipo_entidad === 'dependencia' || userData.tipo_entidad === 'organizacion')) {
         endpoint = '/auth/register';
       } else {
@@ -20,15 +20,15 @@ export default {
           fecha_nacimiento: this.formatDateDB(userData.fecha_nacimiento)
         };
       }
-      
+
       const response = await api.post(endpoint, formattedData);
-      
+
       if (response.data.data) {
         const userToStore = response.data.data.miembro || response.data.data.persona || response.data.data;
         delete userToStore.contraseña;
         localStorage.setItem('user', JSON.stringify(userToStore));
       }
-      
+
       return {
         success: true,
         data: response.data.data,
@@ -88,12 +88,36 @@ export default {
     return api.get(`/members/${encodeURIComponent(email)}`);
   },
 
+  async getAllMembers() {
+    try {
+      const response = await api.get('/members');
+      return {
+        success: true,
+        data: response.data.data || []
+      };
+    } catch (error) {
+      console.error("Error obteniendo miembros:", error);
+      return { success: false, data: [], error: error.message };
+    }
+  },
+
+  async searchGlobal(query) {
+    try {
+      if (!query || query.trim() === '') return { success: true, data: [] };
+      const response = await api.get(`/search?q=${encodeURIComponent(query)}`);
+      return { success: true, data: response.data.data || [] };
+    } catch (error) {
+      console.error("Error en búsqueda global:", error);
+      return { success: false, data: [], error: error.message };
+    }
+  },
+
   async updateMember(email, updates) {
     return api.put(`/members/${encodeURIComponent(email)}`, updates);
   },
 
   // ==================== REPORTS ====================
-  
+
   async getTopCompanies(limit = 10) {
     return api.get(`/reports/top-companies?limit=${limit}`);
   },
@@ -101,7 +125,7 @@ export default {
   async getGraduatesLocation() {
     try {
       const response = await api.get('/reports/graduates-location');
-      
+
       // Verificamos si la respuesta es exitosa y tiene datos
       if (response.data && response.data.success && Array.isArray(response.data.data)) {
         // Transformamos los datos antes de enviarlos al componente Vue
@@ -156,9 +180,9 @@ export default {
     try {
       const user = this.getStoredUser();
       if (!user || !user.email) return { success: false, data: [] };
-      
+
       const response = await api.get(`/groups/user/${encodeURIComponent(user.email)}`);
-      
+
 
       return {
         success: response.data.success,
@@ -183,7 +207,7 @@ export default {
         estado: 'activo',  // Valor por defecto del enum soyucab.estado_grupo
         privacidad: groupData.privacidad // 'publico' o 'privado'
       };
-      
+
       const response = await api.post('/groups', payload);
       return {
         success: response.data.success,
@@ -194,6 +218,78 @@ export default {
       return { success: false, error: error.message };
     }
   },
+
+  async joinGroup(groupName) {
+    try {
+      const user = this.getStoredUser();
+      if (!user) return { success: false, error: 'Sesión no iniciada' };
+
+      const response = await api.post(`/groups/${encodeURIComponent(groupName)}/join`, {
+        userEmail: user.email
+      });
+      return {
+        success: response.data.success,
+        message: response.data.message
+      };
+    } catch (error) {
+      console.error("Error al unirse al grupo:", error);
+      return {
+        success: false,
+        error: error.response?.data?.error || 'No se pudo unir al grupo'
+      };
+    }
+  },
+
+  async getAllGroups() {
+    try {
+      const response = await api.get('/groups');
+      return {
+        success: true,
+        data: response.data.data || []
+      };
+    } catch (error) {
+      console.error("Error obteniendo grupos:", error);
+      return { success: false, data: [], error: error.message };
+    }
+  },
+
+  async updateGroup(name, groupData) {
+    try {
+      const user = this.getStoredUser();
+      const payload = { ...groupData, userEmail: user.email };
+      const response = await api.put(`/groups/${encodeURIComponent(name)}`, payload);
+      return { success: true, data: response.data.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.error || error.message };
+    }
+  },
+  /**
+   * Salir de un grupo específico.
+   * Borra la relación entre el usuario actual y el grupo en la tabla pertenece_a_grupo.
+   */
+  async leaveGroup(groupName) {
+    try {
+      const user = this.getStoredUser();
+      if (!user) return { success: false, error: 'Sesión no encontrada' };
+
+      // Enviamos el email en el body del DELETE usando la propiedad data de axios
+      const response = await api.delete(`/groups/${encodeURIComponent(groupName)}/leave`, {
+        data: { email: user.email }
+      });
+
+      return {
+        success: true,
+        message: response.data.message
+      };
+    } catch (error) {
+      console.error("Error al salir del grupo:", error);
+      return {
+        success: false,
+        error: error.response?.data?.error || 'No se pudo salir del grupo'
+      };
+    }
+  },
+
   // Obtener detalles básicos del grupo
   async getGroupDetails(name) {
     try {
@@ -218,6 +314,7 @@ export default {
   },
 
 
+  // ==================== Group Posts ====================
   async getGroupPosts(name) {
     try {
       const response = await api.get(`/groups/${encodeURIComponent(name)}/posts`);
@@ -239,18 +336,38 @@ export default {
     }
   },
 
-  // Para editar el grupo
-  async updateGroup(name, groupData) {
+  /**
+ * Actualiza una publicación existente en un grupo.
+ * @param {string} groupName - Nombre del grupo.
+ * @param {Object} postIdentifier - { email_publicador, fecha_publicacion }
+ * @param {Object} updatedData - { caption, descripcion_publicacion, tipo_contenido, configuracion_privacidad }
+ */
+  async updateGroupPost(groupName, postIdentifier, updatedData) {
     try {
       const user = this.getStoredUser();
-      const payload = { ...groupData, userEmail: user.email };
-      const response = await api.put(`/groups/${encodeURIComponent(name)}`, payload);
-      return { success: true, data: response.data.data };
+      if (!user) return { success: false, error: 'No hay sesión activa' };
+
+      const payload = {
+        ...postIdentifier,
+        ...updatedData,
+        requesterEmail: user.email
+      };
+
+      const response = await api.put(`/groups/${encodeURIComponent(groupName)}/posts`, payload);
+
+      return {
+        success: true,
+        data: response.data.data,
+        message: 'Publicación actualizada correctamente'
+      };
     } catch (error) {
-      return { success: false, error: error.response?.data?.error || error.message };
+      console.error("Error actualizando post:", error);
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Error al actualizar la publicación'
+      };
     }
   },
-
   // Para dar Like
   async likePost(groupName, postIdentifier) {
     try {
@@ -265,20 +382,113 @@ export default {
       return { success: false, error: error.message };
     }
   },
+  async unlikePost(groupName, email_publicador, fecha_publicacion, userEmail) {
+    try {
+      // IMPORTANTE: El método delete de axios recibe (url, config)
+      // El body va dentro de config.data
+      const response = await api.delete(
+        `/groups/${encodeURIComponent(groupName)}/posts/${encodeURIComponent(email_publicador)}/${encodeURIComponent(fecha_publicacion)}/like`,
+        {
+          data: { userEmail: userEmail }
+        }
+      );
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error("Error en service:", error.response?.data || error.message);
+      return { success: false, error: error.response?.data?.message || "Error al quitar like" };
+    }
+  },
+
+  // Para agregar comentarios
+  async commentPost(groupName, postIdentifier, texto) {
+    try {
+      const user = this.getStoredUser();
+      const { email_publicador, fecha_publicacion } = postIdentifier;
+      const emailComentador = user.email || user.email_persona;
+
+      // La URL base de la API ya incluye /api
+      // groupRoutes en el backend ya incluye /groups
+      const response = await api.post(
+        `/groups/${encodeURIComponent(groupName)}/posts/${encodeURIComponent(email_publicador)}/${encodeURIComponent(fecha_publicacion)}/comments`,
+        {
+          userEmail: emailComentador,
+          texto_comentario: texto
+        }
+      );
+      return { success: true, message: response.data.message };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.error || 'Error al comentar' };
+    }
+  },
+  // Función para obtener comentarios de una publicación
+  async getPostComments(groupName, emailPub, fechaPub, userEmail) {
+    try {
+      // Limpiar la fecha para eliminar caracteres especiales
+      const fechaLimpia = fechaPub.replace('T', ' ').split('.')[0];
+
+      // Codificar los parámetros para la URL
+      const encodedGroupName = encodeURIComponent(groupName);
+      const encodedEmail = encodeURIComponent(emailPub);
+      const encodedFecha = encodeURIComponent(fechaLimpia);
+
+      const url = `/groups/${encodedGroupName}/posts/${encodedEmail}/${encodedFecha}/comments?userEmail=${encodeURIComponent(userEmail)}`;
+
+      const response = await api.get(url);
+      return response.data;
+    } catch (error) {
+      console.error('Error en getPostComments:', error);
+      throw error;
+    }
+  },
+
+  // Editar Comentario
+  async updateComment(groupName, commentData, nuevoTexto) {
+    try {
+      const user = this.getStoredUser();
+      const response = await api.put(`/groups/${encodeURIComponent(groupName)}/posts/comments`, {
+        ...commentData,
+        nuevo_texto: nuevoTexto,
+        requesterEmail: user.email
+      });
+      return { success: true, data: response.data };
+    } catch (error) { return { success: false, error: error.message }; }
+  },
+
+  // Eliminar Comentario
+  async deleteComment(groupName, commentData) {
+    try {
+      const user = this.getStoredUser();
+      const response = await api.delete(`/groups/${encodeURIComponent(groupName)}/posts/comments`, {
+        data: { ...commentData, requesterEmail: user.email, groupName }
+      });
+      return { success: true };
+    } catch (error) { return { success: false }; }
+  },
 
   // Para borrar post
   async deleteGroupPost(groupName, postIdentifier) {
     try {
       const user = this.getStoredUser();
-      // Usamos data para enviar el cuerpo en un DELETE con axios
+      if (!user) return { success: false, error: 'Sesión no encontrada' };
+
       const response = await api.delete(`/groups/${encodeURIComponent(groupName)}/posts`, {
-        data: { ...postIdentifier, requesterEmail: user.email }
+        data: {
+          email_publicador: postIdentifier.email_publicador,
+          fecha_publicacion: postIdentifier.fecha_publicacion,
+          requesterEmail: user.email // Importante para la validación de permisos
+        }
       });
-      return { success: true, data: response.data };
+
+      return { success: true, message: response.data.message };
     } catch (error) {
-      return { success: false, error: error.message };
+      console.error("Error en service deleteGroupPost:", error);
+      return {
+        success: false,
+        error: error.response?.data?.error || 'No se pudo eliminar la publicación'
+      };
     }
   },
+
 
   // ==================== RELATIONS ====================
 
@@ -292,10 +502,10 @@ export default {
       const user = this.getStoredUser();
       if (!user) return { success: false, error: 'No hay sesión activa' };
 
-      const response = await api.post('/relations', { 
-        usuario_origen: user.email, 
-        usuario_destino, 
-        seguimiento 
+      const response = await api.post('/relations', {
+        usuario_origen: user.email,
+        usuario_destino,
+        seguimiento
       });
 
       return {
@@ -304,9 +514,9 @@ export default {
         message: response.data.message
       };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.error || 'Error al procesar la relación' 
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Error al procesar la relación'
       };
     }
   },
@@ -315,14 +525,16 @@ export default {
    * Obtiene la lista de relaciones del usuario actual.
    * @param {string} estado - Opcional: 'pendiente', 'aceptada', 'rechazada'.
    */
-  async getMyRelations(estado = null) {
+  async getMyRelations(type = 'sent', estado = null) {
     try {
       const user = this.getStoredUser();
       if (!user) return { success: false, data: [] };
-      
-      const url = `/relations/${encodeURIComponent(user.email)}${estado ? `?estado=${estado}` : ''}`;
+
+      let url = `/relations/${encodeURIComponent(user.email)}?type=${type}`;
+      if (estado) url += `&estado=${estado}`;
+
       const response = await api.get(url);
-      
+
       return {
         success: true,
         data: response.data.data || []
@@ -376,9 +588,9 @@ export default {
         message: response.data.message || 'Relación finalizada'
       };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.error || 'Error al eliminar la relación' 
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Error al eliminar la relación'
       };
     }
   },
@@ -393,9 +605,9 @@ export default {
     try {
       const user = this.getStoredUser();
       if (!user?.email) return { success: false, error: 'No hay sesión activa' };
-      
+
       const response = await api.get(`/portfolio/${encodeURIComponent(user.email)}`);
-      
+
       // La respuesta del backend ahora incluye data.titulos (un array)
       return {
         success: response.data.success,
@@ -418,19 +630,19 @@ export default {
       if (!user?.email) return { success: false, error: 'No hay sesión activa' };
 
       // Limpiamos los títulos para no enviar strings vacíos
-      const cleanTitulos = Array.isArray(payload.titulos) 
-        ? payload.titulos.filter(t => t && t.trim() !== '') 
+      const cleanTitulos = Array.isArray(payload.titulos)
+        ? payload.titulos.filter(t => t && t.trim() !== '')
         : [];
 
-      const formattedPayload = { 
-        ...payload, 
+      const formattedPayload = {
+        ...payload,
         email: user.email,
         titulos: cleanTitulos
       };
 
       // Usamos POST ya que el backend implementa un "Upsert" (INSERT ... ON CONFLICT)
       const response = await api.post('/portfolio', formattedPayload);
-      
+
       return {
         success: response.data.success,
         data: response.data.data,
@@ -438,9 +650,9 @@ export default {
       };
     } catch (error) {
       console.error("Error actualizando portafolio:", error);
-      return { 
-        success: false, 
-        error: error.response?.data?.error || 'Error al guardar los cambios' 
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Error al guardar los cambios'
       };
     }
   },
@@ -455,7 +667,7 @@ export default {
       if (!user?.email) return { success: false, error: 'No hay sesión activa' };
 
       const response = await api.delete(`/portfolio/${encodeURIComponent(user.email)}`);
-      
+
       return {
         success: response.data.success,
         message: response.data.message || 'Portafolio eliminado'
@@ -467,7 +679,7 @@ export default {
   },
 
   // ==================== UTILITIES ====================
-  
+
   logout() {
     localStorage.removeItem('user');
     window.location.href = '/login';
@@ -492,7 +704,7 @@ export default {
   getCountryName(code) {
     const countries = {
       'CO': 'Colombia',
-      'ES': 'España', 
+      'ES': 'España',
       'US': 'Estados Unidos',
       'VE': 'Venezuela',
       'MX': 'México',

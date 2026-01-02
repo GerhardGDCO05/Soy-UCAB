@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
+
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
 const memberRoutes = require('./routes/memberRoutes');
@@ -10,6 +11,7 @@ const reportRoutes = require('./routes/reportRoutes');
 const groupRoutes = require('./routes/groupRoutes');
 const relationRoutes = require('./routes/relationRoutes');
 const portfolioRoutes = require('./routes/portfolioRoutes');
+const searchRoutes = require('./routes/searchRoutes');
 
 const app = express();
 
@@ -87,6 +89,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/relations', relationRoutes);
 app.use('/api/portfolio', portfolioRoutes);
+app.use('/api/search', searchRoutes);
 
 // Ruta no encontrada
 app.use((req, res) => {

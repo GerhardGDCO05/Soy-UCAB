@@ -21,17 +21,30 @@
         </div>
 
         <div class="user-stats" v-if="userStats.total_seguidores !== undefined">
-          <div class="stat-item">
+          <div class="stat-item" @click="openStatList('seguidores')">
             <span class="stat-number">{{ userStats.total_seguidores || 0 }}</span>
             <span class="stat-label">Seguidores</span>
           </div>
-          <div class="stat-item">
+          <div class="stat-item" @click="openStatList('siguiendo')">
             <span class="stat-number">{{ userStats.siguiendo || 0 }}</span>
             <span class="stat-label">Siguiendo</span>
           </div>
           <div class="stat-item">
             <span class="stat-number">{{ userStats.total_publicaciones || 0 }}</span>
-            <span class="stat-label">Publicaciones</span>
+            <span class="stat-label">Posts</span>
+          </div>
+          
+          <div class="stat-item" @click="openStatList('amistades')">
+            <span class="stat-number">{{ detailStats.amistades || 0 }}</span>
+            <span class="stat-label">Amistades</span>
+          </div>
+          <div class="stat-item" @click="openStatList('pendientes')">
+            <span class="stat-number">{{ detailStats.solicitudes_pendientes || 0 }}</span>
+            <span class="stat-label">Solicitudes</span>
+          </div>
+          <div class="stat-item" @click="openStatList('enviadas')">
+            <span class="stat-number">{{ detailStats.solicitudes_enviadas || 0 }}</span>
+            <span class="stat-label">Enviadas</span>
           </div>
         </div>
 
@@ -147,21 +160,73 @@
 
     <div class="panel middle-panel">
       <div class="posts-section">
-        <h2>Publicaciones</h2>
-
-        <div class="create-post" v-if="isLoggedIn">
-          <div class="create-post-header">
-            <div class="post-avatar">
-              <i class="fas fa-user-circle"></i>
+        <!-- ZONA FIJA SUPERIOR -->
+        <div class="feed-header">
+            <!-- USUARIOS SUGERIDOS -->
+            <div v-if="suggestions.length > 0" class="suggestions-wrapper">
+                <h3 class="section-title-sm">Personas que podrías conocer</h3>
+                <div class="suggestions-horizontal">
+                    <div v-for="user in suggestions" :key="user.email" class="suggestion-card-h">
+                        <div class="suggestion-avatar-h">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <div class="suggestion-name-h">
+                            {{ user.nombre_usuario }}
+                        </div>
+                        <div class="suggestion-actions">
+                            <button class="btn-follow-sm" @click="followUser(user.email, true)" title="Seguir">
+                                Seguir
+                            </button>
+                            <button class="btn-friend-sm" @click="followUser(user.email, false)" title="Solicitar Amistad">
+                                Amistad
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <textarea v-model="newPostContent" placeholder="¿Qué estás pensando?" rows="3" class="post-input"></textarea>
-          </div>
-          <div class="create-post-actions">
-            <button class="post-submit-btn" @click="createPost" :disabled="!newPostContent.trim() || posting">
-              <i class="fas fa-paper-plane"></i>
-              {{ posting ? 'Publicando...' : 'Publicar' }}
-            </button>
-          </div>
+
+            <!-- GRUPOS SUGERIDOS -->
+            <div v-if="suggestedGroups.length > 0" class="suggestions-wrapper">
+                <h3 class="section-title-sm">Grupos recomendados</h3>
+                <div class="suggestions-horizontal">
+                    <div v-for="group in suggestedGroups" :key="group.nombre" class="suggestion-card-h">
+                        <div class="suggestion-avatar-h">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="suggestion-name-h">
+                            {{ group.nombre }}
+                        </div>
+                        <small class="suggestion-meta-h">
+                            {{ group.cantidad_miembros || 0 }} miembros
+                        </small>
+                        <button v-if="group.is_member" class="btn-ver-group" @click="goToGroup(group.nombre)" title="Ver grupo">
+                            Ver grupo
+                        </button>
+                        <button v-else class="btn-join-group" @click="joinGroup(group.nombre)" title="Unirse al grupo">
+                            Unirse
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CREAR PUBLICACIÓN -->
+            <div class="create-post-wrapper">
+                <h2 style="padding: 1rem 1.5rem 0 1.5rem; margin:0; font-size: 1.2rem;">Publicaciones</h2>
+                <div class="create-post" v-if="isLoggedIn" style="margin-bottom:0; box-shadow:none;">
+                  <div class="create-post-header">
+                    <div class="post-avatar">
+                      <i class="fas fa-user-circle"></i>
+                    </div>
+                    <textarea v-model="newPostContent" placeholder="¿Qué estás pensando?" rows="3" class="post-input"></textarea>
+                  </div>
+                  <div class="create-post-actions">
+                    <button class="post-submit-btn" @click="createPost" :disabled="!newPostContent.trim() || posting">
+                      <i class="fas fa-paper-plane"></i>
+                      {{ posting ? 'Publicando...' : 'Publicar' }}
+                    </button>
+                  </div>
+                </div>
+            </div>
         </div>
 
         <div v-if="loadingPosts" class="loading-posts">
@@ -218,32 +283,6 @@
     </div>
 
     <div class="panel right-panel sidebar">
-      <div class="suggestions-section">
-        <h3>Sugerencias para ti</h3>
-        <div class="suggestions-box">
-          <div v-if="loadingSuggestions" class="loading">
-            <i class="fas fa-spinner fa-spin"></i> Cargando...
-          </div>
-          <div v-else-if="suggestions.length === 0" class="empty-message">
-            No hay sugerencias disponibles
-          </div>
-          <div v-else class="suggestions-list">
-            <div v-for="user in suggestions" :key="user.email" class="suggestion-item">
-              <div class="suggestion-avatar">
-                <i class="fas fa-user-circle"></i>
-              </div>
-              <div class="suggestion-details">
-                <div class="suggestion-name">{{ user.nombres }} {{ user.apellidos }}</div>
-                <div class="suggestion-username">@{{ user.nombre_usuario }}</div>
-              </div>
-              <button class="follow-btn" @click="followUser(user.email)" :disabled="user.is_following">
-                {{ user.is_following ? 'Siguiendo' : 'Seguir' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div class="trends-section">
         <h3>Tendencias</h3>
         <div class="trends-box">
@@ -320,7 +359,44 @@
       </div>
     </div>
   </div>
+  
+  <!-- MODAL DE STATS (Seguidores, Amigos, etc) -->
+  <div v-if="showStatModal" class="modal-overlay" @click.self="showStatModal = false">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>{{ currentStatTitle }}</h3>
+        <button @click="showStatModal = false" style="background:none; color:black; font-size:1.2rem;">&times;</button>
+      </div>
+      
+      <div v-if="modalLoading" class="loading">Cargando...</div>
+      <div v-else class="modal-body">
+        <div v-if="currentStatList.length === 0">No hay usuarios en esta lista.</div>
+        <ul v-else class="user-list">
+             <li v-for="item in currentStatList" :key="item.usuario_origen + item.usuario_destino" class="user-list-item">
+                <div class="user-list-info">
+                    <div class="user-list-avatar"> <i class="fas fa-user-circle"></i> </div>
+                    <div>
+                        <strong>{{ item.nombre_usuario || item.email_otro }}</strong><br>
+                        <small>{{ item.label }}</small>
+                    </div>
+                </div>
+                <div class="user-list-actions">
+                    <button v-if="item.isRequest" class="btn-small post-submit-btn" @click="handleRelationAction(item, 'accept')">Aceptar</button>
+                    <button v-if="item.isRequest" class="btn-small post-action" @click="handleRelationAction(item, 'reject')">Rechazar</button>
+                    
+                    <button v-if="item.canRemove" class="btn-small delete-icon-btn" @click="handleRelationAction(item, 'delete')">Eliminar</button>
+                    <button v-if="item.canUnfollow" class="btn-small post-action" @click="handleRelationAction(item, 'delete')">Dejar de seguir</button>
+                    <button v-if="item.canUnfriend" class="btn-small delete-icon-btn" @click="handleRelationAction(item, 'delete')">Eliminar amigo</button>
+                    <button v-if="item.canCancel" class="btn-small post-action" @click="handleRelationAction(item, 'delete')">Cancelar</button>
+                </div>
+             </li>
+        </ul>
+      </div>
+    </div>
+  </div>
 </template>
+
+
 
 <script>
 import headerBar from './header.vue'
@@ -340,12 +416,26 @@ export default {
         siguiendo: 0,
         total_publicaciones: 0
       },
+      // Nuevos contadores detallados
+      detailStats: {
+        amistades: 0,
+        solicitudes_pendientes: 0,
+        solicitudes_enviadas: 0
+      },
+      
+      // Modal state
+      showStatModal: false,
+      currentStatTitle: '',
+      currentStatList: [],
+      modalLoading: false,
+
       additionalInfo: null,
       userPosts: [],
       newPostContent: '',
       posting: false,
       loadingPosts: false,
       suggestions: [],
+      suggestedGroups: [],
       trends: [],
       loadingSuggestions: false,
       loadingTrends: false,
@@ -358,11 +448,12 @@ export default {
         privacidad: 'publico',
         requisitos_ingreso: ''
       },
-      creatingGroup: false,
       myGroups: [],
       myGroupsLoading: false,
-      portfolio: null,
+      myGroupNames: [],
+      creatingGroup: false,
       portfolioEditing: false,
+      portfolio: null,
       portfolioForm: { 
         resumen: '', 
         enlaces: '', 
@@ -389,10 +480,12 @@ export default {
     await Promise.all([
       this.loadUserPosts(),
       this.loadSuggestions(),
+      this.loadSuggestedGroups(),
       this.loadTrends(),
       this.loadRecentActivity(),
       this.loadMyGroups(),
-      this.loadMyPortfolio()
+      this.loadMyPortfolio(),
+      this.loadRelationStats()
     ])
   },
   methods: {
@@ -428,6 +521,102 @@ export default {
         this.loading = false;
       }
     },
+    
+    // Calcula las estadisticas reales consultando las relaciones
+    async loadRelationStats() {
+        try {
+            const sentRes = await api.getMyRelations('sent'); 
+            const receivedRes = await api.getMyRelations('received');
+            
+            if (sentRes.success && receivedRes.success) {
+                const sent = sentRes.data || [];
+                const received = receivedRes.data || [];
+
+                this.userStats.total_seguidores = received.filter(r => r.estado === 'aceptada' && r.seguimiento === true).length;
+                this.userStats.siguiendo = sent.filter(r => r.estado === 'aceptada' && r.seguimiento === true).length;
+
+                const friendsSent = sent.filter(r => r.estado === 'aceptada' && r.seguimiento === false).length;
+                const friendsReceived = received.filter(r => r.estado === 'aceptada' && r.seguimiento === false).length;
+                this.detailStats.amistades = friendsSent + friendsReceived;
+
+                this.detailStats.solicitudes_pendientes = received.filter(r => r.estado === 'pendiente').length;
+                this.detailStats.solicitudes_enviadas = sent.filter(r => r.estado === 'pendiente').length;
+            }
+        } catch (e) {
+            console.error("Error calculando stats:", e);
+        }
+    },
+
+    async openStatList(type) {
+        this.showStatModal = true;
+        this.modalLoading = true;
+        this.currentStatList = [];
+        
+        try {
+            const sentRes = await api.getMyRelations('sent');
+            const receivedRes = await api.getMyRelations('received');
+            const sent = sentRes.data || [];
+            const received = receivedRes.data || [];
+
+            switch(type) {
+                case 'seguidores':
+                    this.currentStatTitle = 'Seguidores';
+                    this.currentStatList = received.filter(r => r.estado === 'aceptada' && r.seguimiento === true)
+                        .map(r => ({ ...r, label: 'Te sigue', canRemove: true })); 
+                    break;
+                case 'siguiendo':
+                    this.currentStatTitle = 'Siguiendo';
+                    this.currentStatList = sent.filter(r => r.estado === 'aceptada' && r.seguimiento === true)
+                        .map(r => ({ ...r, label: 'Siguiendo', canUnfollow: true }));
+                    break;
+                case 'amistades':
+                    this.currentStatTitle = 'Mis Amistades';
+                    const f1 = sent.filter(r => r.estado === 'aceptada' && r.seguimiento === false);
+                    const f2 = received.filter(r => r.estado === 'aceptada' && r.seguimiento === false);
+                    this.currentStatList = [...f1, ...f2].map(r => ({ ...r, label: 'Amigo', canUnfriend: true }));
+                    break;
+                case 'pendientes':
+                    this.currentStatTitle = 'Solicitudes de Amistad/Seguimiento';
+                    this.currentStatList = received.filter(r => r.estado === 'pendiente')
+                        .map(r => ({ ...r, label: 'Solicitante', isRequest: true }));
+                    break;
+                case 'enviadas':
+                    this.currentStatTitle = 'Solicitudes Enviadas';
+                    this.currentStatList = sent.filter(r => r.estado === 'pendiente')
+                        .map(r => ({ ...r, label: 'Pendiente', canCancel: true }));
+                    break;
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error cargando lista");
+        } finally {
+            this.modalLoading = false;
+        }
+    },
+
+    async handleRelationAction(item, action) {
+        try {
+            let res;
+            if (action === 'accept') {
+                res = await api.respondToRelationRequest(item.usuario_origen, 'aceptada');
+            } else if (action === 'reject') {
+                res = await api.respondToRelationRequest(item.usuario_origen, 'rechazada');
+            } else if (action === 'delete') { 
+                res = await api.breakRelation(item.email_otro || (item.usuario_origen === this.userEmail ? item.usuario_destino : item.usuario_origen));
+            }
+
+            if (res && res.success) {
+                this.currentStatList = this.currentStatList.filter(i => i !== item);
+                this.loadRelationStats();
+            } else {
+                alert("Error: " + (res.error || "Falló la acción"));
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    },
+
+    // ... RESTO DE MÉTODOS EXISTENTES ...
     loadAdditionalInfo() {
       const u = this.userData;
       if (u.tipo_usuario === 'estudiante') this.additionalInfo = { estudiante: u.estudiante }
@@ -439,7 +628,6 @@ export default {
     async loadMyPortfolio() {
       try {
         const r = await api.getMyPortfolio();
-        // Cambio: Verificación más robusta de si el portafolio tiene contenido real
         if (r && r.success && r.data && (r.data.resumen || r.data.titulos?.length > 0)) {
           this.portfolio = r.data;
           this.syncPortfolioForm();
@@ -593,9 +781,135 @@ export default {
       const r = await api.createRelation(email, 'seguimiento')
       if (r.success) alert('Siguiendo dependencia')
     },
-    async loadSuggestions() { this.suggestions = [] },
+    async followUser(email, esSeguimiento = true) {
+      if (!email) return;
+      try {
+        const response = await api.createRelation(email, esSeguimiento);
+        if (response.success) {
+          // Actualizar estado local
+          this.suggestions = this.suggestions.filter(u => u.email !== email);
+          
+          // Actualizar contadores si es necesario
+          if (esSeguimiento) {
+            this.userStats.siguiendo++;
+          }
+          this.loadRelationStats(); // Recargar para asegurar consistencia
+          
+          // Mensaje de confirmación
+          alert(esSeguimiento ? 'Ahora sigues a este usuario' : 'Solicitud de amistad enviada');
+        } else {
+             // Si ya existe la relación, tal vez solo refrescar
+             if (response.error && response.error.includes('duplicate')) {
+                 this.suggestions = this.suggestions.filter(u => u.email !== email);
+             } else {
+                 alert("No se pudo crear la relación: " + response.error);
+             }
+        }
+      } catch (e) {
+        console.error(e);
+        alert('Error al procesar la solicitud');
+      }
+    },
+    
+    async loadSuggestions() { 
+        this.loadingSuggestions = true;
+        try {
+            // 1. Obtener todos los miembros
+            const membersRes = await api.getAllMembers();
+            if (!membersRes.success) throw new Error(membersRes.error);
+            const allMembers = membersRes.data || [];
+
+            // 2. Obtener a quienes ya sigo (para excluirlos)
+            const relRes = await api.getMyRelations('sent');
+            const followingEmails = new Set();
+            if (relRes.success && relRes.data) {
+                relRes.data.forEach(r => {
+                    // Si r.email_otro es a quien sigo. 
+                    // Ojo: getMyRelations 'sent' devuelve email_otro como el DESTINO.
+                    if (r.email_otro) followingEmails.add(r.email_otro);
+                });
+            }
+            followingEmails.add(this.userEmail); // Excluirme a mí mismo
+
+            // 3. Filtrar
+            const candidates = allMembers.filter(m => !followingEmails.has(m.email));
+
+            // 4. Seleccionar aleatorios o los primeros 5
+            this.suggestions = candidates.slice(0, 5).map(u => ({ ...u, is_following: false }));
+
+        } catch (e) {
+            console.error("Error cargando sugerencias:", e);
+        } finally {
+            this.loadingSuggestions = false;
+        }
+    },
+    
+    async loadSuggestedGroups() {
+      try {
+        const groupsRes = await api.getAllGroups();
+        if (!groupsRes.success) return;
+        const allGroups = groupsRes.data || [];
+
+        const myGroupsRes = await api.getMyGroups();
+        const myNames = new Set();
+        if (myGroupsRes.success && myGroupsRes.data) {
+          myGroupsRes.data.forEach(g => {
+            if (g.nombre) myNames.add(g.nombre);
+          });
+        }
+        this.myGroupNames = Array.from(myNames);
+
+        // Marcamos si es miembro o no
+        // Mostramos una mezcla de grupos (por ahora los primeros 10)
+        this.suggestedGroups = allGroups.slice(0, 10).map(g => ({
+            ...g,
+            is_member: myNames.has(g.nombre)
+        }));
+
+      } catch (e) {
+        console.error("Error cargando grupos sugeridos:", e);
+      }
+    },
+
+    async joinGroup(groupName) {
+      if (!groupName) return;
+      try {
+        const res = await api.joinGroup(groupName);
+        if (res.success) {
+          alert(res.message || 'Te has unido al grupo');
+          await this.loadSuggestedGroups();
+          await this.loadMyGroups();
+        } else {
+          alert(res.error || 'No se pudo unir al grupo');
+        }
+      } catch (e) {
+        console.error(e);
+        alert('Error al procesar la unión al grupo');
+      }
+    },
+    
     async loadTrends() { this.trends = [] },
-    async loadRecentActivity() { this.recentActivity = [] }
+    async loadRecentActivity() { this.recentActivity = [] },
+    
+    goToGroup(name) {
+      if (!name) return;
+      this.$router.push({ name: 'GroupDashboard', params: { name: name } });
+    },
+
+    async loadMyGroups() {
+        this.myGroupsLoading = true;
+        try {
+            const res = await api.getMyGroups();
+            if (res.success) {
+                this.myGroups = res.data || [];
+                this.myGroupNames = this.myGroups.map(g => g.nombre);
+            }
+        } catch (e) {
+            console.error("Error loadMyGroups:", e);
+        } finally {
+            this.myGroupsLoading = false;
+        }
+    }
   }
 }
 </script>

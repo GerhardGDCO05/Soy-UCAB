@@ -95,7 +95,13 @@ class ApiService {
   }
 
   delete(endpoint, options = {}) {
-    return this.request(endpoint, { ...options, method: 'DELETE' });
+    const { data, ...otherOptions } = options;
+    return this.request(endpoint, { 
+      ...otherOptions, 
+      method: 'DELETE', 
+      // Si enviaste 'data' en las opciones, lo convertimos a string para el body de fetch
+      body: data ? JSON.stringify(data) : undefined 
+    });
   }
 }
 
