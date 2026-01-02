@@ -18,7 +18,7 @@ app.use(cors({
   origin: '*',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  allowedHeaders: ['Content-Type', 'Accept'] // Eliminamos 'Authorization' ya que no usamos Tokens
 }));
 
 app.use(express.json({ limit: '10mb' }));
@@ -42,10 +42,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Ruta de documentación
+// Ruta de documentación (Actualizada para reflejar el cambio a No-Token)
 app.get('/api', (req, res) => {
   res.json({
-    message: '🚀 API SoyUCAB - Sistema de Red Social Universitaria',
+    message: '🚀 API SoyUCAB - Sistema de Red Social Universitaria (Modo sin Tokens)',
     version: '1.0.0',
     documentation: {
       auth: {
@@ -53,90 +53,27 @@ app.get('/api', (req, res) => {
           method: 'POST',
           endpoint: '/api/auth/register',
           description: 'Registrar nuevo usuario',
-          body: {
-            email: 'string (required)',
-            nombre_usuario: 'string (required, max 20)',
-            contraseña: 'string (required)',
-            nombres: 'string (required)',
-            apellidos: 'string (required)',
-            ci: 'string (required)',
-            fecha_nacimiento: 'date (required)',
-            sexo: 'string (optional, M/F)',
-            telefono: 'string (optional)',
-            biografia: 'string (optional)',
-            tipo_miembro: 'string (optional: Estudiante, Egresado, Profesor)'
-          }
+          body: { email: 'string', nombre_usuario: 'string', contraseña: '...' }
         },
         login: {
           method: 'POST',
           endpoint: '/api/auth/login',
-          description: 'Iniciar sesión',
-          body: {
-            email: 'string (required)',
-            contraseña: 'string (required)'
-          }
+          description: 'Validar credenciales (retorna datos de usuario)',
+          body: { email: 'string', contraseña: '...' }
         }
       },
       members: {
-        getAll: {
-          method: 'GET',
-          endpoint: '/api/members',
-          description: 'Obtener todos los miembros',
-          query: {
-            page: 'number (optional, default: 1)',
-            limit: 'number (optional, default: 50)',
-            tipo: 'string (optional: Estudiante, Egresado, Profesor)',
-            search: 'string (optional)'
-          }
-        },
         getOne: {
           method: 'GET',
           endpoint: '/api/members/:email',
           description: 'Obtener miembro por email'
-        },
-        create: {
-          method: 'POST',
-          endpoint: '/api/members',
-          description: 'Crear nuevo miembro'
         }
       },
-      reports: {
-        topCompanies: {
-          method: 'GET',
-          endpoint: '/api/reports/top-companies',
-          description: 'Top empresas contratantes de egresados'
-        },
-        tutors: {
-          method: 'GET',
-          endpoint: '/api/reports/tutors',
-          description: 'Reporte de tutores'
-        },
-        mentions: {
-          method: 'GET',
-          endpoint: '/api/reports/mentions',
-          description: 'Reconocimientos de profesores'
-        },
-        graduatesLocation: {
-          method: 'GET',
-          endpoint: '/api/reports/graduates-location',
-          description: 'Ubicación de egresados'
-        }
-      },
-      groups: {
-        create: {
+      portfolio: {
+        upsert: {
           method: 'POST',
-          endpoint: '/api/groups',
-          description: 'Crear nuevo grupo (autenticado)'
-        },
-        join: {
-          method: 'POST',
-          endpoint: '/api/groups/:name/join',
-          description: 'Unirse a un grupo (público/privado/secreto)'
-        },
-        mine: {
-          method: 'GET',
-          endpoint: '/api/groups/mine',
-          description: 'Listar grupos a los que pertenece el usuario autenticado'
+          endpoint: '/api/portfolio',
+          description: 'Crear/Actualizar portafolio (incluir email en body)'
         }
       }
     }
@@ -177,26 +114,15 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // Error de JWT
-  if (err.name === 'JsonWebTokenError') {
-    return res.status(401).json({
-      success: false,
-      error: 'Token de autenticación inválido'
-    });
-  }
+  /* ELIMINADO: Lógica de errores de JsonWebTokenError y TokenExpiredError
+     ya que el servidor no emitirá estos errores sin el middleware.
+  */
 
-  if (err.name === 'TokenExpiredError') {
-    return res.status(401).json({
-      success: false,
-      error: 'Token de autenticación expirado'
-    });
-  }
-
-  // Error de PostgreSQL
+  // Error de PostgreSQL (Se mantiene la validación de base de datos)
   if (err.code && err.code.startsWith('23')) {
     return res.status(400).json({
       success: false,
-      error: 'Error en la base de datos',
+      error: 'Error en la base de datos (Restricción o duplicado)',
       code: err.code,
       details: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
@@ -217,20 +143,15 @@ const server = app.listen(PORT, () => {
   console.log('='.repeat(60));
   console.log(` Servidor SoyUCAB iniciado`);
   console.log(` URL: http://localhost:${PORT}`);
-  console.log(` Entorno: ${process.env.NODE_ENV || 'development'}`);
-  console.log(` Hora: ${new Date().toLocaleString()}`);
+  console.log(` Modo: Sin Tokens (Identificación por Email)`);
   console.log('='.repeat(60));
   console.log('\nEndpoints disponibles:');
-  console.log('  - GET  /api/health          → Estado del servicio');
-  console.log('  - GET  /api                 → Documentación');
-  console.log('  - POST /api/auth/register   → Registrar usuario');
-  console.log('  - POST /api/auth/login      → Iniciar sesión');
-  console.log('  - GET  /api/members         → Listar miembros');
-  console.log('  - GET  /api/reports/*       → Reportes');
+  console.log('  - GET  /api/health');
+  console.log('  - POST /api/auth/login');
+  console.log('  - GET  /api/members/:email');
   console.log('='.repeat(60));
 });
 
-// Manejo de cierre elegante
 const shutdown = (signal) => {
   console.log(`\n${signal} recibido. Cerrando servidor...`);
   server.close(() => {
@@ -238,7 +159,6 @@ const shutdown = (signal) => {
     process.exit(0);
   });
 
-  // Forzar cierre después de 10 segundos
   setTimeout(() => {
     console.error('Forzando cierre del servidor...');
     process.exit(1);

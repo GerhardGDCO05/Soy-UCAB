@@ -353,18 +353,17 @@ CREATE TABLE soyucab.egresado (
 );
 
 CREATE TABLE soyucab.titulo_obtenido (
-    email_egresado VARCHAR(50),
-    ci_egresado VARCHAR(10),
+    id SERIAL PRIMARY KEY,
+    email_persona VARCHAR(50) NOT NULL,
+    ci_persona VARCHAR(10) NOT NULL,
     nombre_titulo VARCHAR(100) NOT NULL,
-
-    PRIMARY KEY (email_egresado, ci_egresado, nombre_titulo),
-
-    CONSTRAINT fk_titulo_egresado
-        FOREIGN KEY(email_egresado, ci_egresado)
-        REFERENCES soyucab.egresado(email_egresado, ci_egresado)
+    
+    -- Relación con la tabla persona (usando ambos campos para mayor seguridad)
+    CONSTRAINT fk_titulo_persona 
+        FOREIGN KEY (ci_persona) 
+        REFERENCES soyucab.persona(ci) 
         ON DELETE CASCADE
 );
-
 CREATE TYPE soyucab.tipo_notif AS ENUM (
     'sistema',
     'relacion',
@@ -936,6 +935,8 @@ CREATE TYPE soyucab.visibilidad_portafolio AS ENUM ('Publico', 'Privado');
 CREATE TABLE soyucab.Portafolio (
     ci_persona VARCHAR(10) NOT NULL,
     nombre_portafolio VARCHAR(50) NOT NULL,
+    resumen TEXT,
+    enlaces TEXT,
     ultima_actualizacion TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
     visibilidad soyucab.visibilidad_portafolio DEFAULT 'Publico',
     
@@ -949,7 +950,6 @@ CREATE TABLE soyucab.Portafolio (
     CONSTRAINT uk_nombre_portafolio
         UNIQUE (nombre_portafolio)
 );
-
 -- Crear tablas para atributos multivaluados (JSON)
 CREATE TABLE soyucab.Proyectos (
     ci_persona VARCHAR(10) NOT NULL,

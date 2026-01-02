@@ -12,7 +12,6 @@
           <input type="email" :value="user.email" disabled />
         </div>
 
-        <!-- Persona -->
         <template v-if="user.tipo_usuario === 'persona'">
           <div class="field">
             <label>Cédula (no editable)</label>
@@ -44,7 +43,6 @@
             <input v-model="form.apellidos" />
           </div>
 
-          <!-- Roles y info academica/profesional -->
           <div class="field" v-if="user.roles?.length">
             <label>Roles</label>
             <ul>
@@ -69,7 +67,6 @@
 
           <hr />
 
-          <!-- Seguridad: cambiar contraseña -->
           <div class="field">
             <label>Contraseña</label>
             <div class="pw-inline">
@@ -94,7 +91,6 @@
           </div>
         </template>
 
-        <!-- Dependencia -->
         <template v-if="user.tipo_usuario === 'dependencia'">
           <div class="field">
             <label>Nombre institucional</label>
@@ -127,7 +123,6 @@
           </div>
         </template>
 
-        <!-- Organización -->
         <template v-if="user.tipo_usuario === 'organizacion'">
           <div class="field">
             <label>RIF (no editable)</label>
@@ -150,7 +145,7 @@
           </div>
 
           <div class="field">
-            <label>Tipos de colaboración (coma-separated)</label>
+            <label>Tipos de colaboración (separado por comas)</label>
             <input v-model="form.tipos_colaboracion_raw" placeholder="ej: patrocinio,formación" />
           </div>
         </template>
@@ -169,7 +164,7 @@
 
 <script>
 import headerBar from './header.vue';
-import api from '@/services/usuarioSevices';
+import api from '@/services/usuarioServices';
 
 export default {
   name: 'Profile',
@@ -182,8 +177,6 @@ export default {
       saving: false,
       success: null,
       error: null,
-
-      // password change
       showChangePassword: false,
       changingPassword: false,
       passwordFields: {
@@ -211,7 +204,6 @@ export default {
         if (resp.success) {
           this.user = resp.data;
 
-          // Inicializar el formulario según el tipo
           this.form = {
             nombre_usuario: this.user.nombre_usuario || '',
             telefono: this.user.telefono || '',
@@ -219,7 +211,7 @@ export default {
             nombres: this.user.persona_info?.nombres || '',
             apellidos: this.user.persona_info?.apellidos || '',
 
-            // dependencia
+            // Dependencia
             nombre_institucional: this.user.entidad_info?.nombre_institucional || '',
             descripcion: this.user.entidad_info?.descripcion || '',
             responsable: this.user.entidad_info?.responsable || '',
@@ -227,16 +219,19 @@ export default {
             edificio: this.user.entidad_info?.edificio || '',
             pagina_web: this.user.entidad_info?.pagina_web || '',
 
-            // organizacion
+            // Organización
             nombre: this.user.entidad_info?.nombre || '',
-            tipos_colaboracion_raw: this.user.entidad_info?.tipos_colaboracion ? (Array.isArray(this.user.entidad_info.tipos_colaboracion) ? this.user.entidad_info.tipos_colaboracion.join(',') : this.user.entidad_info.tipos_colaboracion) : ''
+            tipos_colaboracion_raw: this.user.entidad_info?.tipos_colaboracion 
+              ? (Array.isArray(this.user.entidad_info.tipos_colaboracion) 
+                  ? this.user.entidad_info.tipos_colaboracion.join(', ') 
+                  : this.user.entidad_info.tipos_colaboracion) 
+              : ''
           };
         } else {
-          this.error = resp.error || 'No se pudo cargar usuario';
+          this.error = 'No se pudo cargar el perfil.';
         }
       } catch (err) {
-        this.error = 'Error cargando perfil';
-        console.error(err);
+        this.error = 'Error cargando perfil.';
       } finally {
         this.loading = false;
       }
@@ -249,6 +244,7 @@ export default {
 
       try {
         const email = this.user.email;
+        let resp;
 
         if (this.user.tipo_usuario === 'persona') {
           const updates = {
@@ -258,54 +254,34 @@ export default {
             nombres: this.form.nombres,
             apellidos: this.form.apellidos
           };
-
-          const resp = await api.updateMember(email, updates);
-          if (resp.success) {
-            this.success = resp.message || 'Perfil actualizado';
-            localStorage.setItem('user', JSON.stringify({ ...JSON.parse(localStorage.getItem('user')||'{}'), ...resp.data }));
-            await this.load();
-          } else {
-            this.error = resp.error || 'Error actualizando perfil';
-          }
-
+          resp = await api.updateMember(email, updates);
         } else if (this.user.tipo_usuario === 'dependencia') {
-          const updates = {
-            nombre_institucional: this.form.nombre_institucional,
-            descripcion: this.form.descripcion,
-            responsable: this.form.responsable,
-            ubicacion_fisica: this.form.ubicacion_fisica,
-            edificio: this.form.edificio,
-            pagina_web: this.form.pagina_web
-          };
-
-          const resp = await api.updateDependencia(email, updates);
-          if (resp.success) {
-            this.success = resp.message || 'Dependencia actualizada';
-            await this.load();
-          } else {
-            this.error = resp.error || 'Error actualizando dependencia';
-          }
-
+          resp = await api.updateDependencia(email, { ...this.form });
         } else if (this.user.tipo_usuario === 'organizacion') {
-          const tipos = this.form.tipos_colaboracion_raw ? this.form.tipos_colaboracion_raw.split(',').map(s => s.trim()).filter(Boolean) : null;
-          const updates = {
-            nombre: this.form.nombre,
-            descripcion: this.form.descripcion,
-            pagina_web: this.form.pagina_web,
-            tipos_colaboracion: tipos
-          };
+          const tipos = this.form.tipos_colaboracion_raw 
+            ? this.form.tipos_colaboracion_raw.split(',').map(s => s.trim()).filter(Boolean) 
+            : [];
+          resp = await api.updateOrganizacion(email, { ...this.form, tipos_colaboracion: tipos });
+        }
 
-          const resp = await api.updateOrganizacion(email, updates);
-          if (resp.success) {
-            this.success = resp.message || 'Organización actualizada';
-            await this.load();
-          } else {
-            this.error = resp.error || 'Error actualizando organización';
-          }
+        if (resp && resp.success) {
+          this.success = 'Perfil actualizado';
+          
+          // Actualizar LocalStorage para que el Home se entere de los cambios de nombre/user
+          const stored = JSON.parse(localStorage.getItem('user') || '{}');
+          localStorage.setItem('user', JSON.stringify({ 
+            ...stored, 
+            nombre_usuario: this.form.nombre_usuario,
+            nombres: this.form.nombres,
+            apellidos: this.form.apellidos
+          }));
+          
+          await this.load();
+        } else {
+          this.error = resp.error || 'Error al guardar cambios';
         }
       } catch (err) {
-        this.error = 'Error actualizando perfil';
-        console.error(err);
+        this.error = 'Error de conexión';
       } finally {
         this.saving = false;
       }
@@ -327,9 +303,6 @@ export default {
     },
 
     async changePassword() {
-      this.pwError = null;
-      this.pwSuccess = null;
-
       const { currentPassword, newPassword, confirmPassword } = this.passwordFields;
       if (!currentPassword || !newPassword || !confirmPassword) {
         this.pwError = 'Complete todos los campos';
@@ -344,14 +317,13 @@ export default {
       try {
         const resp = await api.updateMember(this.user.email, { currentPassword, contraseña: newPassword });
         if (resp.success) {
-          this.pwSuccess = 'Contraseña actualizada correctamente';
-          this.toggleChangePassword();
+          this.pwSuccess = 'Contraseña actualizada';
+          setTimeout(() => this.toggleChangePassword(), 2000);
         } else {
           this.pwError = resp.error || 'Error al cambiar contraseña';
         }
       } catch (err) {
         this.pwError = 'Error al cambiar contraseña';
-        console.error(err);
       } finally {
         this.changingPassword = false;
       }
@@ -359,7 +331,6 @@ export default {
   }
 };
 </script>
-
 <style scoped>
 .profile-container {
   max-width: 900px;

@@ -15,11 +15,11 @@ const pool = new Pool({
 
 // Verificar conexión al iniciar
 pool.on('connect', () => {
-  console.log(' Conectado a PostgreSQL');
+  // console.log('Conectado a PostgreSQL'); // Opcional: silenciar en producción
 });
 
 pool.on('error', (err) => {
-  console.error(' Error en pool de PostgreSQL:', err.message);
+  console.error('❌ Error crítico en pool de PostgreSQL:', err.message);
 });
 
 // Métodos para ejecutar queries
@@ -32,22 +32,33 @@ const query = async (text, params) => {
     if (process.env.NODE_ENV === 'development') {
       console.log(`📊 Query ejecutada (${duration}ms):`, {
         rows: result.rowCount,
-        text: text.substring(0, 150) + (text.length > 150 ? '...' : '')
+        text: text.trim().substring(0, 100).replace(/\s+/g, ' ') + '...'
       });
     }
     
     return result;
   } catch (error) {
-    console.error(' Error en query:', error.message);
+    console.error('❌ Error en ejecución SQL:');
+    console.error('   Mensaje:', error.message);
     console.error('   Query:', text.substring(0, 200));
+    if (params && params.length > 0) console.error('   Parámetros:', params);
     throw error;
   }
 };
 
-// Método para llamar funciones de PostgreSQL
-const callFunction = async (functionName, params = []) => {
-  const placeholders = params.map((_, i) => `$${i + 1}`).join(', ');
-  const queryText = `SELECT * FROM soyucab.${functionName}(${placeholders})`;
+/**
+ * Método para llamar funciones de PostgreSQL
+ * @param {string} functionName - Nombre de la función
+ * @param {Array} params - Arreglo de parámetros
+ * @param {string} schema - Esquema opcional (por defecto soyucab)
+ */
+const callFunction = async (functionName, params = [], schema = 'soyucab') => {
+  // Si no hay parámetros, el string de placeholders queda vacío
+  const placeholders = params.length > 0 
+    ? params.map((_, i) => `$${i + 1}`).join(', ') 
+    : '';
+  
+  const queryText = `SELECT * FROM ${schema}.${functionName}(${placeholders})`;
   return query(queryText, params);
 };
 

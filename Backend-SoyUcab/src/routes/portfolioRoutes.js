@@ -1,12 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const portfolioController = require('../controllers/portfolioController');
-const auth = require('../middleware/auth');
 
-// GET /api/portfolio/me
-router.get('/me', auth.verifyToken, portfolioController.getMyPortfolio);
+// Obtener portafolio
+router.get('/:email', portfolioController.getPortfolioByEmail);
 
-// PUT /api/portfolio/me
-router.put('/me', auth.verifyToken, portfolioController.upsertMyPortfolio);
+// Crear o Actualizar portafolio (Upsert)
+router.post('/', portfolioController.upsertPortfolio);
+
+// ELIMINAR portafolio
+router.delete('/:email', portfolioController.deletePortfolio);
 
 module.exports = router;

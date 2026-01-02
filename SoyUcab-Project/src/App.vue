@@ -1,21 +1,11 @@
-<script >
-  import loginView from './components/PrincipalView.vue';
-  export default {
-    name: 'App',
-    components:{
-      loginView
-    }
-  };
-  
+<script>
+export default {
+  name: 'App'
+};
 </script>
 
 <template>
-  <div id="principal">
-    <router-link to="/principalview" ></router-link>
+  <div id="app-container">
+    <router-view />
   </div>
-  <router-view/>
-  
-  
-
 </template>
-
