@@ -2,12 +2,9 @@ const express = require('express');
 const router = express.Router();
 const relationController = require('../controllers/relationController');
 
-// POST /api/relations - crear relación (seguimiento/amistad)
-
-router.post('/', relationController.createRelation);
-
-// GET /api/relations/:email - obtener relaciones de un usuario específico
-
-router.get('/:email', relationController.getRelationsByEmail);
+router.post('/', relationController.createRelation);           // Solicitar/Seguir
+router.get('/:email', relationController.getRelations);        // Ver mis relaciones
+router.put('/respond', relationController.updateRelationStatus); // Aceptar/Rechazar
+router.delete('/break', relationController.deleteRelation);    // Romper relación / Unfollow
 
 module.exports = router;

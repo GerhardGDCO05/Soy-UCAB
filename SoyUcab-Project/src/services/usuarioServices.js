@@ -282,19 +282,105 @@ export default {
 
   // ==================== RELATIONS ====================
 
-  async createRelation(usuario_destino, tipo) {
-    const user = this.getStoredUser();
-    return api.post('/relations', { 
-      usuario_origen: user.email, 
-      usuario_destino, 
-      tipo 
-    });
+  /**
+   * Crea una nueva relación o envía una solicitud.
+   * @param {string} usuario_destino - Email del usuario a seguir o contactar.
+   * @param {boolean} seguimiento - true para seguir (unidireccional), false para amistad (pendiente de aprobación).
+   */
+  async createRelation(usuario_destino, seguimiento = false) {
+    try {
+      const user = this.getStoredUser();
+      if (!user) return { success: false, error: 'No hay sesión activa' };
+
+      const response = await api.post('/relations', { 
+        usuario_origen: user.email, 
+        usuario_destino, 
+        seguimiento 
+      });
+
+      return {
+        success: true,
+        data: response.data.data,
+        message: response.data.message
+      };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'Error al procesar la relación' 
+      };
+    }
   },
 
-  async getMyRelations() {
-    const user = this.getStoredUser();
-    if (!user) return { success: false, data: [] };
-    return api.get(`/relations/${encodeURIComponent(user.email)}`);
+  /**
+   * Obtiene la lista de relaciones del usuario actual.
+   * @param {string} estado - Opcional: 'pendiente', 'aceptada', 'rechazada'.
+   */
+  async getMyRelations(estado = null) {
+    try {
+      const user = this.getStoredUser();
+      if (!user) return { success: false, data: [] };
+      
+      const url = `/relations/${encodeURIComponent(user.email)}${estado ? `?estado=${estado}` : ''}`;
+      const response = await api.get(url);
+      
+      return {
+        success: true,
+        data: response.data.data || []
+      };
+    } catch (error) {
+      console.error("Error obteniendo relaciones:", error);
+      return { success: false, data: [], error: error.message };
+    }
+  },
+
+  /**
+   * Acepta o rechaza una solicitud de amistad recibida.
+   * @param {string} usuario_origen - El email de quien envió la solicitud.
+   * @param {string} nuevo_estado - 'aceptada' o 'rechazada'.
+   */
+  async respondToRelationRequest(usuario_origen, nuevo_estado) {
+    try {
+      const user = this.getStoredUser(); // En este caso, el destino es el usuario actual
+      const response = await api.put('/relations/respond', {
+        usuario_origen,
+        usuario_destino: user.email,
+        nuevo_estado
+      });
+
+      return {
+        success: true,
+        data: response.data.data,
+        message: `Solicitud ${nuevo_estado}`
+      };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
+   * Rompe una relación existente (Unfollow o Eliminar amigo).
+   * @param {string} usuario_destino - Email del usuario con quien se rompe la relación.
+   */
+  async breakRelation(usuario_destino) {
+    try {
+      const user = this.getStoredUser();
+      const response = await api.delete('/relations/break', {
+        data: {
+          usuario_origen: user.email,
+          usuario_destino: usuario_destino
+        }
+      });
+
+      return {
+        success: true,
+        message: response.data.message || 'Relación finalizada'
+      };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'Error al eliminar la relación' 
+      };
+    }
   },
 
   // ==================== PORTFOLIO ====================
