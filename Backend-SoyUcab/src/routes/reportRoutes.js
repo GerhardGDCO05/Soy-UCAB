@@ -5,6 +5,7 @@ const reportController = require('../controllers/reportController');
 // GET /api/reports/top-companies
 router.get('/top-companies', reportController.getTopCompanies);
 
+
 // GET /api/reports/tutors
 router.get('/tutors', reportController.getTutorsReport);
 
@@ -13,5 +14,12 @@ router.get('/mentions', reportController.getMentionsReport);
 
 // GET /api/reports/graduates-location
 router.get('/graduates-location', reportController.getGraduatesLocation);
+
+// GET /api/reports/getTopCarreras
+router.get('/top-carreras', reportController.getTopCarreras);
+
+router.get('/top-users', reportController.getTopUsers);
+
+
 
 module.exports = router;
