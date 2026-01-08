@@ -25,7 +25,7 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/groupdashboard/:name',
+    path: '/groups/:name',
     name: 'GroupDashboard',
     component: () => import('../components/GroupDashboard.vue'),
     meta: { requiresAuth: true }
@@ -54,13 +54,46 @@ const routes = [
     name: 'AllReports',
     component: () => import('../components/reportesVue/allReports.vue'),
     meta: { requiresAuth: true }
-  }
+  },
+  // ... otros imports
+{
+  path: '/crear-publicacion',
+  name: 'CrearPublicacion',
+  component: () => import('../components/CrearPublicacion.vue')
+},
+// En src/router/router.js
+{
+  path: '/my-feed',
+  name: 'MyFeed',
+  component: () => import('../components/MyFeed.vue') // Verifica que la ruta relativa sea correcta
+},
+{
+  path: '/reporte-top-carreras',
+  name: 'TopCarreras',
+  component: () => import('../components/reportesVue/TopCarreras.vue')
+},
+{
+  path: '/reporte-top-empresas',
+  name: 'TopEmpresas',
+  component: () => import('../components/reportesVue/TopEmpresas.vue')
+},
+{
+  path: '/reporte-top-usuarios',
+  name: 'TopUsuarios',
+  component: () => import('../components/reportesVue/TopUsuarios.vue')
+},
+{
+  path: '/notifications',
+  name: 'Notifications',
+  component: () => import('../components/NotificationsView.vue')
+}
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes
 })
+
 
 // --- GUARD DE NAVEGACIÓN (PROTECCIÓN) ---
 router.beforeEach((to, from, next) => {
@@ -70,11 +103,11 @@ router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth && !isLogged) {
     console.warn('Acceso denegado: Se requiere inicio de sesión');
     next('/principalview'); // Redirigir al login/landing
-  }
+  } 
   // Si el usuario ya está logueado e intenta ir al login/landing
   else if (to.path === '/principalview' && isLogged) {
     next('/home'); // Redirigir al home
-  }
+  } 
   else {
     next(); // Permitir el paso
   }

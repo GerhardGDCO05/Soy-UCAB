@@ -1,8 +1,8 @@
 // src/app.js
+process.env.TZ = 'America/Caracas'; 
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-
 
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
@@ -11,9 +11,10 @@ const reportRoutes = require('./routes/reportRoutes');
 const groupRoutes = require('./routes/groupRoutes');
 const relationRoutes = require('./routes/relationRoutes');
 const portfolioRoutes = require('./routes/portfolioRoutes');
-const searchRoutes = require('./routes/searchRoutes');
+const postRoutes = require('./routes/postRoutes');
 
 const app = express();
+
 
 // Middlewares
 app.use(cors({
@@ -47,7 +48,7 @@ app.get('/api/health', (req, res) => {
 // Ruta de documentación (Actualizada para reflejar el cambio a No-Token)
 app.get('/api', (req, res) => {
   res.json({
-    message: '🚀 API SoyUCAB - Sistema de Red Social Universitaria (Modo sin Tokens)',
+    message: ' API SoyUCAB - Sistema de Red Social Universitaria (Modo sin Tokens)',
     version: '1.0.0',
     documentation: {
       auth: {
@@ -89,7 +90,9 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/relations', relationRoutes);
 app.use('/api/portfolio', portfolioRoutes);
-app.use('/api/search', searchRoutes);
+app.use('/api/posts', postRoutes);
+app.use('/api/interactions', require('./routes/interactionRoutes'));
+app.use('/uploads', express.static('uploads'));
 
 // Ruta no encontrada
 app.use((req, res) => {
@@ -153,6 +156,8 @@ const server = app.listen(PORT, () => {
   console.log('  - POST /api/auth/login');
   console.log('  - GET  /api/members/:email');
   console.log('='.repeat(60));
+  console.log('  - POST /api/posts (Crear publicación)');
+  console.log('  - GET  /api/posts (Obtener feed)');
 });
 
 const shutdown = (signal) => {
