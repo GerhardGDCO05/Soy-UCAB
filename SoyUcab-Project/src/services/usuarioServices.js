@@ -105,10 +105,18 @@ export default {
     try {
       if (!query || query.trim() === '') return { success: true, data: [] };
       const response = await api.get(`/search?q=${encodeURIComponent(query)}`);
-      return { success: true, data: response.data.data || [] };
+      return {
+        success: true,
+        data: response.data?.data || response.data || []
+      };
     } catch (error) {
       console.error("Error en búsqueda global:", error);
-      return { success: false, data: [], error: error.message };
+      return {
+        success: false,
+        data: [],
+        error: error.message,
+        status: error.status
+      };
     }
   },
 

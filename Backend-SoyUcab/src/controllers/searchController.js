@@ -2,20 +2,19 @@ const db = require('../config/database');
 
 module.exports = {
     async search(req, res) {
+        console.log('🔍 Búsqueda recibida:', req.query.q);
+        console.log('📝 Ruta completa:', req.originalUrl);
+
         try {
             const { q } = req.query;
 
             if (!q || q.trim() === '') {
+                console.log('Búsqueda vacía, retornando array vacío');
                 return res.json({ success: true, data: [] });
             }
 
             const searchTerm = `%${q.trim()}%`;
-
-            // Consulta unificada
-            // 1. Personas (nombre, apellido, usuario)
-            // 2. Dependencias (nombre)
-            // 3. Organizaciones (nombre)
-            // 4. Grupos (nombre)
+            console.log('Término de búsqueda:', searchTerm);
 
             const query = `
                 SELECT 
@@ -34,7 +33,7 @@ module.exports = {
                 SELECT 
                     email as id,
                     nombre_institucional as nombre,
-                    email as handle, -- Dependencias no tienen usuario siempre, usamos email
+                    email as handle,
                     'Dependencia' as tipo,
                     descripcion,
                     NULL as info_extra
@@ -56,7 +55,7 @@ module.exports = {
                 UNION ALL
                 
                 SELECT 
-                    nombre as id, -- Grupos usan nombre como PK
+                    nombre as id,
                     nombre,
                     'Grupo' as handle,
                     'Grupo' as tipo,
@@ -68,13 +67,22 @@ module.exports = {
                 LIMIT 20
             `;
 
+            console.log('Ejecutando consulta SQL...');
             const result = await db.query(query, [searchTerm]);
+            console.log(` Resultados encontrados: ${result.rows.length}`);
 
-            res.json({ success: true, data: result.rows });
+            res.json({
+                success: true,
+                data: result.rows
+            });
 
         } catch (error) {
-            console.error('Error en búsqueda global:', error);
-            res.status(500).json({ success: false, error: 'Error en el servidor' });
+            console.error(' Error en búsqueda global:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Error en el servidor',
+                details: error.message
+            });
         }
     }
 };

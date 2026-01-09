@@ -1,5 +1,5 @@
 // src/app.js
-process.env.TZ = 'America/Caracas'; 
+process.env.TZ = 'America/Caracas';
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -12,6 +12,7 @@ const groupRoutes = require('./routes/groupRoutes');
 const relationRoutes = require('./routes/relationRoutes');
 const portfolioRoutes = require('./routes/portfolioRoutes');
 const postRoutes = require('./routes/postRoutes');
+const searchRoutes = require('./routes/searchRoutes');
 
 const app = express();
 
@@ -93,7 +94,7 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/interactions', require('./routes/interactionRoutes'));
 app.use('/uploads', express.static('uploads'));
-
+app.use('/api', searchRoutes);
 // Ruta no encontrada
 app.use((req, res) => {
   res.status(404).json({
@@ -119,10 +120,6 @@ app.use((err, req, res, next) => {
       details: err.message
     });
   }
-
-  /* ELIMINADO: Lógica de errores de JsonWebTokenError y TokenExpiredError
-     ya que el servidor no emitirá estos errores sin el middleware.
-  */
 
   // Error de PostgreSQL (Se mantiene la validación de base de datos)
   if (err.code && err.code.startsWith('23')) {
