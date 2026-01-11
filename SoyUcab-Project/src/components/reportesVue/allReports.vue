@@ -94,15 +94,15 @@ export default {
     },
 
     goToUsuarios() {
-      //this.$router.push('/users-ranking');
+      this.$router.push('/reporte-top-usuarios');
     },
 
     goToEmpresas() {
-      //this.$router.push('/companies-report');
+      this.$router.push('/reporte-top-empresas');
     },
 
     goToCarreras() {
-     // this.$router.push('/careers-report');
+     this.$router.push('/reporte-top-carreras');
     },
 
     goToTutores() {
@@ -127,4 +127,5 @@ export default {
   }
 };
 </script>
+
 
