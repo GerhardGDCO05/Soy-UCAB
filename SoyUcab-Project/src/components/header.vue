@@ -4,7 +4,6 @@
             <img src="/logo-ucab3.png" alt="Logo Ucab">
         </div>
         
-        
         <div class="buscador">
             <input 
                 type="text" 
@@ -66,11 +65,10 @@
             </div>
         </div>
         
-        
         <div class="NavBar">
             <button id="home" @click="gotoHome" title="Inicio"></button>
             <button id="conversaciones" title="Mensajes"></button>
-            <button id="campana" title="Notificaciones"></button>
+            <button id="campana" @click="gotoNotifications" title="Notificaciones"></button>
             <button id="perfil" @click="gotoProfile" title="Mi Perfil"></button>
             
             <button id="reportsButtom" @click="gotoAllReports">
@@ -199,6 +197,11 @@ export default {
         handleLogout() {
             api.logout();
             window.location.href = '/principalview';
+        },
+        gotoNotifications() {
+            if (this.$route.path !== '/notifications') {
+                this.$router.push('/notifications');
+            }
         }
     }
 };

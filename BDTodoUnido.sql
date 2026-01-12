@@ -80,7 +80,7 @@ CREATE TYPE soyucab.genero AS ENUM ('M', 'F');
 -- Crear tablas en el schema soyucab
 CREATE TABLE soyucab.miembro (
     email VARCHAR(50) PRIMARY KEY,
-    telefono integer,
+    telefono VARCHAR(20);,
     biografia TEXT,
     estado_cuenta soyucab.estado_miembro,
     privacidad_perfil soyucab.privacidad,
@@ -143,6 +143,690 @@ CREATE TABLE soyucab.rolInstitucional (
     CONSTRAINT ck_fecha_valida
         CHECK (fecha_inicio <= fecha_finalizacion OR fecha_finalizacion IS NULL)
 );
+CREATE OR REPLACE FUNCTION soyucab.gestionar_rol_persona(
+    -- Parámetros básicos
+    p_email VARCHAR(50),
+    p_tipo_rol soyucab.tipo_rol,
+    p_estatus soyucab.estatus_rol DEFAULT 'Activo',
+    
+    -- Parámetros temporales
+    p_fecha_inicio DATE DEFAULT NULL,
+    p_fecha_finalizacion DATE DEFAULT NULL,
+    
+    -- Parámetros específicos por rol
+    -- Para Estudiante
+    p_email_ucab VARCHAR(50) DEFAULT NULL,
+    p_semestre INT DEFAULT NULL,
+    p_carrera VARCHAR(100) DEFAULT NULL,
+    p_facultad VARCHAR(100) DEFAULT NULL,
+    p_promedio DECIMAL(4,2) DEFAULT NULL,
+    
+    -- Para Egresado
+    p_fecha_acto_grado DATE DEFAULT NULL,
+    p_pais VARCHAR(2) DEFAULT NULL,
+    p_estado VARCHAR(15) DEFAULT NULL,
+    
+    -- Para Profesor
+    p_fecha_ingreso DATE DEFAULT NULL,
+    p_categoria VARCHAR(50) DEFAULT NULL,
+    p_dedicacion VARCHAR(50) DEFAULT NULL,
+    
+    -- Para Personal Administrativo
+    p_cargo_admin VARCHAR(100) DEFAULT NULL,
+    p_ubicacion_trabajo VARCHAR(100) DEFAULT NULL,
+    p_dedicacion_admin VARCHAR(50) DEFAULT NULL,
+    
+    -- Para Personal Obrero
+    p_cargo_obrero VARCHAR(100) DEFAULT NULL,
+    p_dedicacion_obrero VARCHAR(50) DEFAULT NULL,
+    p_empresa_pertenece VARCHAR(100) DEFAULT NULL,
+    
+    -- Opciones
+    p_operacion VARCHAR(10) DEFAULT 'crear'
+)
+RETURNS JSON AS $$
+DECLARE
+    v_ci_persona VARCHAR(10);
+    v_fecha_inicio DATE;
+    v_rol_existente BOOLEAN;
+    v_fecha_existente DATE;
+    v_estatus_existente soyucab.estatus_rol;
+    v_resultado JSON;
+    v_mensaje TEXT;
+BEGIN
+    -- Validar persona
+    SELECT ci INTO v_ci_persona
+    FROM soyucab.persona
+    WHERE email_persona = p_email;
+
+    IF v_ci_persona IS NULL THEN
+        RETURN json_build_object(
+            'exito', false,
+            'mensaje', 'ERROR: Persona no encontrada.',
+            'detalle', 'Email: ' || p_email
+        );
+    END IF;
+
+    -- Determinar fecha de inicio
+    IF p_fecha_inicio IS NULL THEN
+        v_fecha_inicio := CURRENT_DATE;
+    ELSE
+        v_fecha_inicio := p_fecha_inicio;
+    END IF;
+
+    -- Verificar si el rol ya existe
+    SELECT EXISTS (
+        SELECT 1 FROM soyucab.rolInstitucional 
+        WHERE email_persona = p_email 
+        AND tipo_rol = p_tipo_rol
+        AND fecha_inicio = v_fecha_inicio
+    ), estatus, fecha_inicio INTO v_rol_existente, v_estatus_existente, v_fecha_existente
+    FROM soyucab.rolInstitucional 
+    WHERE email_persona = p_email 
+    AND tipo_rol = p_tipo_rol
+    AND fecha_inicio = v_fecha_inicio
+    LIMIT 1;
+
+    -- Manejar según operación
+    CASE p_operacion
+        WHEN 'crear' THEN
+            IF v_rol_existente THEN
+                RETURN json_build_object(
+                    'exito', false,
+                    'mensaje', 'ERROR: Ya existe este rol para la persona.',
+                    'detalle', 'Rol: ' || p_tipo_rol || ', Fecha inicio: ' || v_fecha_existente,
+                    'estatus_actual', v_estatus_existente
+                );
+            END IF;
+
+            -- Insertar rol institucional
+            INSERT INTO soyucab.rolInstitucional (
+                email_persona,
+                tipo_rol,
+                fecha_inicio,
+                estatus,
+                fecha_finalizacion
+            ) VALUES (
+                p_email,
+                p_tipo_rol,
+                v_fecha_inicio,
+                p_estatus,
+                p_fecha_finalizacion
+            );
+
+            -- Insertar en tabla específica según el rol
+            v_mensaje := 'Rol creado exitosamente. ';
+
+            CASE p_tipo_rol
+                WHEN 'Estudiante' THEN
+                    -- Validaciones para estudiante
+                    IF p_email_ucab IS NULL OR p_semestre IS NULL OR 
+                       p_carrera IS NULL OR p_facultad IS NULL OR p_promedio IS NULL THEN
+                        RETURN json_build_object(
+                            'exito', false,
+                            'mensaje', 'ERROR: Faltan datos obligatorios para Estudiante.',
+                            'detalle', 'Se requieren: email_ucab, semestre, carrera, facultad, promedio'
+                        );
+                    END IF;
+
+                    IF p_email_ucab NOT LIKE '%@est.ucab.edu.ve' THEN
+                        RETURN json_build_object(
+                            'exito', false,
+                            'mensaje', 'ERROR: Email UCAB inválido.',
+                            'detalle', 'Debe terminar en @est.ucab.edu.ve'
+                        );
+                    END IF;
+
+                    -- Insertar en estudiante con nombres de columna corregidos
+                    INSERT INTO soyucab.estudiante (
+                        email_estudiante,
+                        fecha_inicio_rol,
+                        email_dominio_estudiante,
+                        ci_estudiante,
+                        semestre,
+                        carrera_programa,
+                        facultad,
+                        promedio
+                    ) VALUES (
+                        p_email,
+                        v_fecha_inicio,
+                        p_email_ucab,
+                        v_ci_persona,
+                        p_semestre,
+                        p_carrera,
+                        p_facultad,
+                        p_promedio
+                    );
+                    v_mensaje := v_mensaje || 'Datos académicos registrados.';
+
+                WHEN 'Egresado' THEN
+                    IF p_facultad IS NULL THEN
+                        RETURN json_build_object(
+                            'exito', false,
+                            'mensaje', 'ERROR: Faltan datos obligatorios para Egresado.',
+                            'detalle', 'Se requiere: facultad'
+                        );
+                    END IF;
+
+                    -- Insertar en egresado con nombres de columna corregidos
+                    INSERT INTO soyucab.egresado (
+                        email_egresado,
+                        fecha_inicio_rol,
+                        ci_egresado,
+                        facultad,
+                        fecha_acto_grado,
+                        pais,
+                        estado
+                    ) VALUES (
+                        p_email,
+                        v_fecha_inicio,
+                        v_ci_persona,
+                        p_facultad,
+                        p_fecha_acto_grado,
+                        p_pais,
+                        p_estado
+                    );
+                    v_mensaje := v_mensaje || 'Datos de egresado registrados.';
+
+                -- Las otras tablas (Profesor, Personal Administrativo, Personal Obrero) ya están correctas
+                WHEN 'Profesor' THEN
+                    INSERT INTO soyucab.profesor (
+                        email_persona,
+                        tipo_rol,
+                        fecha_inicio,
+                        fecha_ingreso,
+                        categoria,
+                        dedicacion
+                    ) VALUES (
+                        p_email,
+                        p_tipo_rol,
+                        v_fecha_inicio,
+                        p_fecha_ingreso,
+                        p_categoria,
+                        p_dedicacion
+                    );
+                    v_mensaje := v_mensaje || 'Datos de profesor registrados.';
+
+                WHEN 'Personal Administrativo' THEN
+                    INSERT INTO soyucab.personal_administrativo (
+                        email_persona,
+                        tipo_rol,
+                        fecha_inicio,
+                        cargo,
+                        ubicacion_de_trabajo,
+                        dedicacion
+                    ) VALUES (
+                        p_email,
+                        p_tipo_rol,
+                        v_fecha_inicio,
+                        p_cargo_admin,
+                        p_ubicacion_trabajo,
+                        p_dedicacion_admin
+                    );
+                    v_mensaje := v_mensaje || 'Datos administrativos registrados.';
+
+                WHEN 'Personal Obrero' THEN
+                    INSERT INTO soyucab.personal_obrero (
+                        email_persona,
+                        tipo_rol,
+                        fecha_inicio,
+                        cargo,
+                        dedicacion,
+                        empresa_a_la_que_pertenece
+                    ) VALUES (
+                        p_email,
+                        p_tipo_rol,
+                        v_fecha_inicio,
+                        p_cargo_obrero,
+                        p_dedicacion_obrero,
+                        p_empresa_pertenece
+                    );
+                    v_mensaje := v_mensaje || 'Datos de personal obrero registrados.';
+
+                ELSE
+                    v_mensaje := v_mensaje || 'Rol básico registrado.';
+            END CASE;
+
+            v_resultado := json_build_object(
+                'exito', true,
+                'mensaje', v_mensaje,
+                'datos', json_build_object(
+                    'email', p_email,
+                    'tipo_rol', p_tipo_rol,
+                    'fecha_inicio', v_fecha_inicio,
+                    'estatus', p_estatus,
+                    'ci', v_ci_persona
+                )
+            );
+
+        -- ... resto de la función (actualizar, finalizar) permanece igual
+        WHEN 'actualizar' THEN
+            IF NOT v_rol_existente THEN
+                RETURN json_build_object(
+                    'exito', false,
+                    'mensaje', 'ERROR: Rol no encontrado para actualizar.',
+                    'detalle', 'Rol: ' || p_tipo_rol || ', Fecha inicio: ' || v_fecha_inicio
+                );
+            END IF;
+
+            -- Actualizar rol institucional
+            UPDATE soyucab.rolInstitucional
+            SET estatus = COALESCE(p_estatus, estatus),
+                fecha_finalizacion = COALESCE(p_fecha_finalizacion, fecha_finalizacion)
+            WHERE email_persona = p_email 
+            AND tipo_rol = p_tipo_rol
+            AND fecha_inicio = v_fecha_inicio;
+
+            -- Actualizar tabla específica según el rol
+            v_mensaje := 'Rol actualizado exitosamente. ';
+
+            CASE p_tipo_rol
+                WHEN 'Estudiante' THEN
+                    UPDATE soyucab.estudiante
+                    SET semestre = COALESCE(p_semestre, semestre),
+                        carrera_programa = COALESCE(p_carrera, carrera_programa),
+                        facultad = COALESCE(p_facultad, facultad),
+                        promedio = COALESCE(p_promedio, promedio)
+                    WHERE email_estudiante = p_email 
+                    AND fecha_inicio_rol = v_fecha_inicio;
+
+                WHEN 'Egresado' THEN
+                    UPDATE soyucab.egresado
+                    SET facultad = COALESCE(p_facultad, facultad),
+                        fecha_acto_grado = COALESCE(p_fecha_acto_grado, fecha_acto_grado),
+                        pais = COALESCE(p_pais, pais),
+                        estado = COALESCE(p_estado, estado)
+                    WHERE email_egresado = p_email 
+                    AND fecha_inicio_rol = v_fecha_inicio;
+
+                WHEN 'Profesor' THEN
+                    UPDATE soyucab.profesor
+                    SET categoria = COALESCE(p_categoria, categoria),
+                        dedicacion = COALESCE(p_dedicacion, dedicacion),
+                        fecha_ingreso = COALESCE(p_fecha_ingreso, fecha_ingreso)
+                    WHERE email_persona = p_email 
+                    AND tipo_rol = p_tipo_rol
+                    AND fecha_inicio = v_fecha_inicio;
+
+                WHEN 'Personal Administrativo' THEN
+                    UPDATE soyucab.personal_administrativo
+                    SET cargo = COALESCE(p_cargo_admin, cargo),
+                        ubicacion_de_trabajo = COALESCE(p_ubicacion_trabajo, ubicacion_de_trabajo),
+                        dedicacion = COALESCE(p_dedicacion_admin, dedicacion)
+                    WHERE email_persona = p_email 
+                    AND tipo_rol = p_tipo_rol
+                    AND fecha_inicio = v_fecha_inicio;
+
+                WHEN 'Personal Obrero' THEN
+                    UPDATE soyucab.personal_obrero
+                    SET cargo = COALESCE(p_cargo_obrero, cargo),
+                        dedicacion = COALESCE(p_dedicacion_obrero, dedicacion),
+                        empresa_a_la_que_pertenece = COALESCE(p_empresa_pertenece, empresa_a_la_que_pertenece)
+                    WHERE email_persona = p_email 
+                    AND tipo_rol = p_tipo_rol
+                    AND fecha_inicio = v_fecha_inicio;
+
+                ELSE
+                    v_mensaje := v_mensaje || 'Rol básico actualizado.';
+            END CASE;
+
+            v_resultado := json_build_object(
+                'exito', true,
+                'mensaje', v_mensaje,
+                'datos', json_build_object(
+                    'email', p_email,
+                    'tipo_rol', p_tipo_rol,
+                    'fecha_inicio', v_fecha_inicio,
+                    'estatus_actual', COALESCE(p_estatus, v_estatus_existente)
+                )
+            );
+
+        WHEN 'finalizar' THEN
+            IF NOT v_rol_existente THEN
+                RETURN json_build_object(
+                    'exito', false,
+                    'mensaje', 'ERROR: Rol no encontrado para finalizar.',
+                    'detalle', 'Rol: ' || p_tipo_rol || ', Fecha inicio: ' || v_fecha_inicio
+                );
+            END IF;
+
+            -- Finalizar rol (cambiar estatus)
+            UPDATE soyucab.rolInstitucional
+            SET estatus = 'Inactivo',
+                fecha_finalizacion = COALESCE(p_fecha_finalizacion, CURRENT_DATE)
+            WHERE email_persona = p_email 
+            AND tipo_rol = p_tipo_rol
+            AND fecha_inicio = v_fecha_inicio;
+
+            v_resultado := json_build_object(
+                'exito', true,
+                'mensaje', 'Rol finalizado exitosamente.',
+                'datos', json_build_object(
+                    'email', p_email,
+                    'tipo_rol', p_tipo_rol,
+                    'fecha_inicio', v_fecha_inicio,
+                    'fecha_finalizacion', COALESCE(p_fecha_finalizacion, CURRENT_DATE),
+                    'estatus_anterior', v_estatus_existente,
+                    'estatus_nuevo', 'Inactivo'
+                )
+            );
+
+        ELSE
+            RETURN json_build_object(
+                'exito', false,
+                'mensaje', 'ERROR: Operación no válida.',
+                'detalle', 'Operaciones válidas: crear, actualizar, finalizar'
+            );
+    END CASE;
+
+    RETURN v_resultado;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object(
+            'exito', false,
+            'mensaje', 'ERROR en la operación: ' || SQLERRM,
+            'detalle', SQLSTATE
+        );
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION soyucab.graduar_estudiante_a_egresado(
+    p_email VARCHAR(50),
+    p_fecha_graduacion DATE DEFAULT NULL,
+    p_facultad VARCHAR(100) DEFAULT NULL,
+    p_pais VARCHAR(2) DEFAULT NULL,
+    p_estado VARCHAR(15) DEFAULT NULL,
+    p_mantener_estudiante BOOLEAN DEFAULT FALSE
+)
+RETURNS JSON AS $$
+DECLARE
+    v_estudiante_data RECORD;
+    v_fecha_graduacion DATE;
+    v_resultado JSON;
+    v_ci_persona VARCHAR(10);
+    v_fecha_inicio_rol DATE;
+    v_facultad_estudiante VARCHAR(100);
+BEGIN
+    -- Verificar que es estudiante activo
+    SELECT e.*, p.ci INTO v_estudiante_data
+    FROM soyucab.estudiante e
+    JOIN soyucab.persona p ON e.email_estudiante = p.email_persona
+    WHERE e.email_estudiante = p_email
+      AND EXISTS (
+        SELECT 1 FROM soyucab.rolInstitucional ri
+        WHERE ri.email_persona = e.email_estudiante
+          AND ri.tipo_rol = 'Estudiante'
+          AND ri.fecha_inicio = e.fecha_inicio_rol
+          AND ri.estatus = 'Activo'
+      )
+    LIMIT 1;
+
+    IF NOT FOUND THEN
+        RETURN json_build_object(
+            'exito', false,
+            'mensaje', 'ERROR: No es estudiante activo.',
+            'detalle', 'Email: ' || p_email
+        );
+    END IF;
+
+    -- Obtener CI por separado
+    SELECT ci INTO v_ci_persona
+    FROM soyucab.persona
+    WHERE email_persona = p_email;
+
+    -- Extraer datos del record
+    v_fecha_inicio_rol := v_estudiante_data.fecha_inicio_rol;
+    v_facultad_estudiante := v_estudiante_data.facultad;
+
+    -- Fecha de graduación
+    IF p_fecha_graduacion IS NULL THEN
+        v_fecha_graduacion := CURRENT_DATE;
+    ELSE
+        v_fecha_graduacion := p_fecha_graduacion;
+    END IF;
+
+    -- Si no se mantiene como estudiante, finalizar rol de estudiante
+    IF NOT p_mantener_estudiante THEN
+        -- Finalizar rol de estudiante
+        v_resultado := soyucab.gestionar_rol_persona(
+            p_email,
+            'Estudiante',
+            'Graduado',  -- Estatus especial para graduados
+            v_fecha_inicio_rol,  -- Fecha inicio original
+            v_fecha_graduacion,  -- Fecha finalización = graduación
+            NULL, NULL, NULL, NULL, NULL,  -- Datos de estudiante (no aplican)
+            NULL, NULL, NULL,  -- Datos de egresado
+            NULL, NULL, NULL,  -- Datos de profesor
+            NULL, NULL, NULL,  -- Datos admin
+            NULL, NULL, NULL,  -- Datos obrero
+            'actualizar'
+        );
+    END IF;
+
+    -- Crear rol de egresado
+    v_resultado := soyucab.gestionar_rol_persona(
+        p_email,
+        'Egresado',
+        'Graduado',
+        v_fecha_graduacion,  -- Fecha inicio como egresado
+        NULL,  -- Sin fecha finalización
+        NULL, NULL, NULL, NULL, NULL,  -- Datos de estudiante
+        COALESCE(p_facultad, v_facultad_estudiante),  -- Facultad
+        v_fecha_graduacion,  -- Fecha acto grado
+        p_pais,
+        p_estado,
+        NULL, NULL, NULL,  -- Datos de profesor
+        NULL, NULL, NULL,  -- Datos admin
+        NULL, NULL, NULL,  -- Datos obrero
+        'crear'
+    );
+
+    -- Si no se mantiene como estudiante, eliminar de tabla estudiante
+    IF NOT p_mantener_estudiante THEN
+        DELETE FROM soyucab.estudiante
+        WHERE email_estudiante = p_email
+          AND fecha_inicio_rol = v_fecha_inicio_rol;
+    END IF;
+
+    RETURN json_build_object(
+        'exito', true,
+        'mensaje', 'Estudiante graduado exitosamente como Egresado.',
+        'datos', json_build_object(
+            'email', p_email,
+            'fecha_graduacion', v_fecha_graduacion,
+            'mantiene_estudiante', p_mantener_estudiante,
+            'ci', v_ci_persona,
+            'facultad', COALESCE(p_facultad, v_facultad_estudiante)
+        )
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION soyucab.agregar_rol_adicional(
+    p_email VARCHAR(50),
+    p_nuevo_rol soyucab.tipo_rol,
+    p_fecha_inicio DATE DEFAULT NULL,
+    p_datos_rol JSON DEFAULT '{}'::JSON
+)
+RETURNS JSON AS $$
+DECLARE
+    v_fecha_inicio DATE;
+    v_roles_actuales TEXT[];
+    v_resultado JSON;
+BEGIN
+    -- Fecha de inicio
+    IF p_fecha_inicio IS NULL THEN
+        v_fecha_inicio := CURRENT_DATE;
+    ELSE
+        v_fecha_inicio := p_fecha_inicio;
+    END IF;
+
+    -- Obtener roles actuales activos
+    SELECT ARRAY_AGG(tipo_rol) INTO v_roles_actuales
+    FROM soyucab.roles_activos
+    WHERE email_persona = p_email;
+
+    -- Verificar si ya tiene este rol activo
+    IF v_roles_actuales IS NOT NULL AND p_nuevo_rol = ANY(v_roles_actuales) THEN
+        RETURN json_build_object(
+            'exito', false,
+            'mensaje', 'ERROR: Ya tiene este rol activo.',
+            'detalle', 'Rol: ' || p_nuevo_rol,
+            'roles_actuales', v_roles_actuales
+        );
+    END IF;
+
+    -- Crear nuevo rol usando la función universal
+    CASE p_nuevo_rol
+        WHEN 'Estudiante' THEN
+            v_resultado := soyucab.gestionar_rol_persona(
+                p_email,
+                p_nuevo_rol,
+                'Activo',
+                v_fecha_inicio,
+                NULL,
+                (p_datos_rol->>'email_ucab')::VARCHAR,
+                (p_datos_rol->>'semestre')::INT,
+                (p_datos_rol->>'carrera')::VARCHAR,
+                (p_datos_rol->>'facultad')::VARCHAR,
+                (p_datos_rol->>'promedio')::DECIMAL,
+                NULL, NULL, NULL,  -- Egresado
+                NULL, NULL, NULL,  -- Profesor
+                NULL, NULL, NULL,  -- Admin
+                NULL, NULL, NULL,  -- Obrero
+                'crear'
+            );
+
+        WHEN 'Egresado' THEN
+            v_resultado := soyucab.gestionar_rol_persona(
+                p_email,
+                p_nuevo_rol,
+                'Activo',
+                v_fecha_inicio,
+                NULL,
+                NULL, NULL, NULL, NULL, NULL,  -- Estudiante
+                (p_datos_rol->>'facultad')::VARCHAR,
+                (p_datos_rol->>'fecha_acto_grado')::DATE,
+                (p_datos_rol->>'pais')::VARCHAR,
+                (p_datos_rol->>'estado')::VARCHAR,
+                NULL, NULL, NULL,  -- Profesor
+                NULL, NULL, NULL,  -- Admin
+                NULL, NULL, NULL,  -- Obrero
+                'crear'
+            );
+
+        WHEN 'Profesor' THEN
+            v_resultado := soyucab.gestionar_rol_persona(
+                p_email,
+                p_nuevo_rol,
+                'Activo',
+                v_fecha_inicio,
+                NULL,
+                NULL, NULL, NULL, NULL, NULL,  -- Estudiante
+                NULL, NULL, NULL, NULL,  -- Egresado
+                (p_datos_rol->>'fecha_ingreso')::DATE,
+                (p_datos_rol->>'categoria')::VARCHAR,
+                (p_datos_rol->>'dedicacion')::VARCHAR,
+                NULL, NULL, NULL,  -- Admin
+                NULL, NULL, NULL,  -- Obrero
+                'crear'
+            );
+
+        WHEN 'Personal Administrativo' THEN
+            v_resultado := soyucab.gestionar_rol_persona(
+                p_email,
+                p_nuevo_rol,
+                'Activo',
+                v_fecha_inicio,
+                NULL,
+                NULL, NULL, NULL, NULL, NULL,  -- Estudiante
+                NULL, NULL, NULL, NULL,  -- Egresado
+                NULL, NULL, NULL,  -- Profesor
+                (p_datos_rol->>'cargo')::VARCHAR,
+                (p_datos_rol->>'ubicacion')::VARCHAR,
+                (p_datos_rol->>'dedicacion')::VARCHAR,
+                NULL, NULL, NULL,  -- Obrero
+                'crear'
+            );
+
+        WHEN 'Personal Obrero' THEN
+            v_resultado := soyucab.gestionar_rol_persona(
+                p_email,
+                p_nuevo_rol,
+                'Activo',
+                v_fecha_inicio,
+                NULL,
+                NULL, NULL, NULL, NULL, NULL,  -- Estudiante
+                NULL, NULL, NULL, NULL,  -- Egresado
+                NULL, NULL, NULL,  -- Profesor
+                NULL, NULL, NULL,  -- Admin
+                (p_datos_rol->>'cargo')::VARCHAR,
+                (p_datos_rol->>'dedicacion')::VARCHAR,
+                (p_datos_rol->>'empresa')::VARCHAR,
+                'crear'
+            );
+
+        ELSE
+            RETURN json_build_object(
+                'exito', false,
+                'mensaje', 'ERROR: Rol no válido.',
+                'detalle', 'Rol: ' || p_nuevo_rol
+            );
+    END CASE;
+
+    -- Agregar información de roles concurrentes
+    IF (v_resultado->>'exito')::BOOLEAN = true THEN
+        SELECT ARRAY_AGG(tipo_rol) INTO v_roles_actuales
+        FROM soyucab.roles_activos
+        WHERE email_persona = p_email;
+
+        v_resultado := jsonb_set(
+            v_resultado::jsonb,
+            '{datos,roles_concurrentes}',
+            to_jsonb(v_roles_actuales)
+        )::json;
+    END IF;
+
+    RETURN v_resultado;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- Vista: Personas con múltiples roles activos
+CREATE VIEW soyucab.v_personas_multiroles AS
+SELECT 
+    p.email_persona,
+    p.nombres,
+    p.apellidos,
+    p.ci,
+    ARRAY_AGG(DISTINCT ri.tipo_rol) AS roles_activos,
+    COUNT(DISTINCT ri.tipo_rol) AS cantidad_roles
+FROM soyucab.persona p
+JOIN soyucab.rolInstitucional ri ON p.email_persona = ri.email_persona
+WHERE ri.estatus = 'Activo'
+GROUP BY p.email_persona, p.nombres, p.apellidos, p.ci
+HAVING COUNT(DISTINCT ri.tipo_rol) > 1;
+
+-- Vista: Historial completo de roles por persona
+CREATE VIEW soyucab.v_historial_roles AS
+SELECT 
+    p.email_persona,
+    p.nombres,
+    p.apellidos,
+    ri.tipo_rol,
+    ri.fecha_inicio,
+    ri.fecha_finalizacion,
+    ri.estatus,
+    CASE 
+        WHEN CURRENT_DATE BETWEEN ri.fecha_inicio AND COALESCE(ri.fecha_finalizacion, CURRENT_DATE)
+        THEN 'Vigente'
+        ELSE 'Histórico'
+    END AS vigencia
+FROM soyucab.persona p
+JOIN soyucab.rolInstitucional ri ON p.email_persona = ri.email_persona
+ORDER BY p.apellidos, p.nombres, ri.fecha_inicio DESC;
+
 
 CREATE TABLE soyucab.grupo (
     nombre VARCHAR(50) PRIMARY KEY,
@@ -212,10 +896,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_procesar_solicitud
-AFTER INSERT OR UPDATE OF estado ON soyucab.solicitud_unirse_grupo
-FOR EACH ROW
-EXECUTE FUNCTION soyucab.procesar_solicitud_unirse_grupo();
+
 
 -- Procedimiento: aprobar solicitud (invocado por la lógica de negocio - por ejemplo desde backend)
 CREATE OR REPLACE PROCEDURE soyucab.aprobar_solicitud_unirse(p_id INT)
@@ -320,37 +1001,66 @@ FOR EACH ROW
 EXECUTE FUNCTION soyucab.verificar_pertenencia_grupo_publicacion();
 
 CREATE TABLE soyucab.estudiante (
-    email_estudiante VARCHAR(50) PRIMARY KEY,
-    ci_estudiante VARCHAR(10) UNIQUE NOT NULL,
-    semestre integer CHECK (semestre BETWEEN 1 AND 10),
+    email_estudiante VARCHAR(50) NOT NULL,
+    fecha_inicio_rol DATE NOT NULL,
+    tipo_rol soyucab.tipo_rol NOT NULL DEFAULT 'Estudiante',
+    ci_estudiante VARCHAR(10) NOT NULL,
+    semestre INTEGER CHECK (semestre BETWEEN 1 AND 10),
     carrera_programa VARCHAR(100) NOT NULL,
     facultad VARCHAR(100) NOT NULL,
-    promedio numeric(4,2) CHECK (promedio >= 0.00 AND promedio <=20.00),
-
-    CONSTRAINT chk_email_dominio
-        CHECK (email_estudiante LIKE '%@est.ucab.edu.ve'),
-
+    promedio NUMERIC(4,2) CHECK (promedio >= 0.00 AND promedio <= 20.00),
+    
+    PRIMARY KEY (email_estudiante, tipo_rol, fecha_inicio_rol),
+    
+    CONSTRAINT chk_tipo_rol_estudiante
+        CHECK (tipo_rol = 'Estudiante'),
+    
+    CONSTRAINT fk_estudiante_rol
+        FOREIGN KEY (email_estudiante, tipo_rol, fecha_inicio_rol)
+        REFERENCES soyucab.rolInstitucional(email_persona, tipo_rol, fecha_inicio)
+        ON DELETE CASCADE,
+    
     CONSTRAINT fk_estudiante_persona
-        FOREIGN KEY(email_estudiante)
+        FOREIGN KEY (email_estudiante)
         REFERENCES soyucab.persona(email_persona)
         ON DELETE CASCADE
 );
+
+ALTER TABLE soyucab.estudiante 
+ADD COLUMN email_dominio_estudiante VARCHAR(50) UNIQUE;
+
+ALTER TABLE soyucab.estudiante
+ADD CONSTRAINT chk_email_dominio_estudiante
+    CHECK (email_dominio_estudiante LIKE '%@est.ucab.edu.ve' OR email_dominio_estudiante IS NULL);
+
+-- Crear tabla corregida CON fecha_inicio_rol
 
 CREATE TABLE soyucab.egresado (
+    email_egresado VARCHAR(50) NOT NULL,
+    fecha_inicio_rol DATE NOT NULL,  
+    tipo_rol soyucab.tipo_rol NOT NULL DEFAULT 'Egresado',
+    ci_egresado VARCHAR(10) NOT NULL,
     facultad VARCHAR(100) NOT NULL,
-    fecha_acto_grado Date,
+    fecha_acto_grado DATE,
     pais VARCHAR(2),
     estado VARCHAR(15),
-    email_egresado VARCHAR(50),
-    ci_egresado VARCHAR(10),
-
-    PRIMARY KEY (email_egresado, ci_egresado),
-
+    
+    PRIMARY KEY (email_egresado, tipo_rol, fecha_inicio_rol),
+    
+    CONSTRAINT fk_egresado_rol
+        FOREIGN KEY (email_egresado, tipo_rol, fecha_inicio_rol)
+        REFERENCES soyucab.rolInstitucional(email_persona, tipo_rol, fecha_inicio)
+        ON DELETE CASCADE,
+    
     CONSTRAINT fk_egresado_persona
-        FOREIGN KEY(email_egresado)
+        FOREIGN KEY (email_egresado)
         REFERENCES soyucab.persona(email_persona)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+        
+    CONSTRAINT chk_tipo_rol_egresado
+        CHECK (tipo_rol = 'Egresado')
 );
+
 
 CREATE TABLE soyucab.titulo_obtenido (
     id SERIAL PRIMARY KEY,
@@ -1477,14 +2187,15 @@ EXECUTE FUNCTION soyucab.actualizar_fecha_portafolio();
 
 CREATE TABLE soyucab.empresa (
     email_egresado VARCHAR(50) NOT NULL,
-    ci_egresado VARCHAR(10) NOT NULL,
+    tipo_rol soyucab.tipo_rol NOT NULL DEFAULT 'Egresado',
+    fecha_inicio_rol DATE NOT NULL,
     nombre_empresa VARCHAR(100) NOT NULL,
     
-    PRIMARY KEY (email_egresado, nombre_empresa),
+    PRIMARY KEY (email_egresado, tipo_rol, fecha_inicio_rol, nombre_empresa),
 
     CONSTRAINT fk_empresa_egresado
-        FOREIGN KEY (email_egresado, ci_egresado)
-        REFERENCES soyucab.egresado(email_egresado, ci_egresado)
+        FOREIGN KEY (email_egresado, tipo_rol, fecha_inicio_rol)
+        REFERENCES soyucab.egresado(email_egresado, tipo_rol, fecha_inicio_rol)
         ON DELETE CASCADE
 );
 
@@ -1540,16 +2251,7 @@ CREATE TABLE soyucab.me_gusta (
         ON DELETE CASCADE
 );
 
--- Modificar tabla estudiante para agregar email de dominio
-ALTER TABLE soyucab.estudiante 
-DROP CONSTRAINT IF EXISTS chk_email_dominio;
 
-ALTER TABLE soyucab.estudiante
-ADD COLUMN email_dominio_estudiante VARCHAR(50) UNIQUE NOT NULL;
-
-ALTER TABLE soyucab.estudiante
-ADD CONSTRAINT chk_email_dominio_estudiante
-    CHECK (email_dominio_estudiante LIKE '%@est.ucab.edu.ve');
 
 -- PROCEDIMIENTO PASAR ESTUDIANTE A EGRESADO
 CREATE OR REPLACE PROCEDURE soyucab.graduar_estudiante(
@@ -2061,3 +2763,342 @@ BEGIN
         prr.anio_reconocimiento DESC, p.apellidos;
 END;
 $$ LANGUAGE plpgsql;
+
+
+
+CREATE TABLE soyucab.roles_activos (
+    email_persona VARCHAR(50) NOT NULL,
+    tipo_rol soyucab.tipo_rol NOT NULL,
+    fecha_activacion TIMESTAMP DEFAULT NOW(),
+    
+    PRIMARY KEY (email_persona, tipo_rol),
+    
+    CONSTRAINT fk_roles_activos_persona
+        FOREIGN KEY (email_persona)
+        REFERENCES soyucab.persona(email_persona)
+        ON DELETE CASCADE
+);
+
+-- Función del trigger para mantener roles_activos actualizado
+CREATE OR REPLACE FUNCTION soyucab.actualizar_roles_activos()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Si se inserta un rol activo
+    IF TG_OP = 'INSERT' AND NEW.estatus = 'Activo' THEN
+        INSERT INTO soyucab.roles_activos (email_persona, tipo_rol)
+        VALUES (NEW.email_persona, NEW.tipo_rol)
+        ON CONFLICT (email_persona, tipo_rol) DO UPDATE
+        SET fecha_activacion = NOW();
+    
+    -- Si se actualiza el estatus
+    ELSIF TG_OP = 'UPDATE' THEN
+        -- Si pasa a Activo
+        IF OLD.estatus != 'Activo' AND NEW.estatus = 'Activo' THEN
+            INSERT INTO soyucab.roles_activos (email_persona, tipo_rol)
+            VALUES (NEW.email_persona, NEW.tipo_rol)
+            ON CONFLICT (email_persona, tipo_rol) DO UPDATE
+            SET fecha_activacion = NOW();
+        
+        -- Si deja de estar Activo
+        ELSIF OLD.estatus = 'Activo' AND NEW.estatus != 'Activo' THEN
+            DELETE FROM soyucab.roles_activos
+            WHERE email_persona = NEW.email_persona 
+              AND tipo_rol = NEW.tipo_rol;
+        END IF;
+    
+    -- Si se elimina
+    ELSIF TG_OP = 'DELETE' AND OLD.estatus = 'Activo' THEN
+        DELETE FROM soyucab.roles_activos
+        WHERE email_persona = OLD.email_persona 
+          AND tipo_rol = OLD.tipo_rol;
+    END IF;
+    
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_actualizar_roles_activos
+AFTER INSERT OR UPDATE OR DELETE ON soyucab.rolInstitucional
+FOR EACH ROW
+EXECUTE FUNCTION soyucab.actualizar_roles_activos();
+
+-- Vista: Roles activos actuales
+CREATE VIEW soyucab.v_roles_activos AS
+SELECT 
+    ra.email_persona,
+    p.nombres,
+    p.apellidos,
+    ra.tipo_rol,
+    ra.fecha_activacion
+FROM soyucab.roles_activos ra
+JOIN soyucab.persona p ON ra.email_persona = p.email_persona
+ORDER BY p.apellidos, p.nombres;
+
+
+
+-- Vista para información académica completa por rol
+CREATE OR REPLACE VIEW soyucab.v_informacion_academica_roles AS
+WITH informacion_base AS (
+    -- Información de Estudiante
+    SELECT 
+        ri.email_persona,
+        ri.tipo_rol,
+        ri.fecha_inicio,
+        ri.fecha_finalizacion,
+        ri.estatus,
+        'Estudiante'::TEXT AS categoria_rol,
+        e.carrera_programa AS programa_academico,
+        e.facultad,
+        e.semestre,
+        e.promedio,
+        NULL::VARCHAR AS titulo_obtenido,
+        NULL::VARCHAR AS institucion_titulo,
+        NULL::INTEGER AS año_titulo,
+        e.email_dominio_estudiante AS contacto_institucional,
+        NULL::VARCHAR AS cargo,
+        NULL::VARCHAR AS ubicacion_trabajo,
+        NULL::VARCHAR AS dedicacion,
+        NULL::VARCHAR AS empresa,
+        jsonb_build_object(
+            'semestre', e.semestre,
+            'promedio', e.promedio,
+            'email_institucional', e.email_dominio_estudiante,
+            'ci_estudiante', e.ci_estudiante
+        ) AS detalles_especificos
+    FROM soyucab.rolInstitucional ri
+    INNER JOIN soyucab.estudiante e 
+        ON ri.email_persona = e.email_estudiante 
+        AND ri.tipo_rol = e.tipo_rol
+        AND ri.fecha_inicio = e.fecha_inicio_rol
+    WHERE ri.tipo_rol = 'Estudiante'
+    
+    UNION ALL
+    
+    -- Información de Egresado
+    SELECT 
+        ri.email_persona,
+        ri.tipo_rol,
+        ri.fecha_inicio,
+        ri.fecha_finalizacion,
+        ri.estatus,
+        'Egresado'::TEXT AS categoria_rol,
+        eg.facultad AS programa_academico,
+        eg.facultad,
+        NULL::INTEGER AS semestre,
+        NULL::DECIMAL AS promedio,
+        COALESCE(
+            (SELECT nombre_titulo 
+             FROM soyucab.titulo_obtenido to2 
+             WHERE to2.email_persona = ri.email_persona 
+             ORDER BY id DESC LIMIT 1),
+            'Título obtenido según facultad'
+        ) AS titulo_obtenido,
+        'UCAB'::VARCHAR AS institucion_titulo,
+        EXTRACT(YEAR FROM eg.fecha_acto_grado)::INTEGER AS año_titulo,
+        NULL::VARCHAR AS contacto_institucional,
+        NULL::VARCHAR AS cargo,
+        NULL::VARCHAR AS ubicacion_trabajo,
+        NULL::VARCHAR AS dedicacion,
+        NULL::VARCHAR AS empresa,
+        jsonb_build_object(
+            'fecha_acto_grado', eg.fecha_acto_grado,
+            'pais', eg.pais,
+            'estado', eg.estado,
+            'ci_egresado', eg.ci_egresado
+        ) AS detalles_especificos
+    FROM soyucab.rolInstitucional ri
+    INNER JOIN soyucab.egresado eg 
+        ON ri.email_persona = eg.email_egresado 
+        AND ri.tipo_rol = eg.tipo_rol
+        AND ri.fecha_inicio = eg.fecha_inicio_rol
+    WHERE ri.tipo_rol = 'Egresado'
+    
+    UNION ALL
+    
+    -- Información de Profesor
+    SELECT 
+        ri.email_persona,
+        ri.tipo_rol,
+        ri.fecha_inicio,
+        ri.fecha_finalizacion,
+        ri.estatus,
+        'Profesor'::TEXT AS categoria_rol,
+        COALESCE(
+            (SELECT STRING_AGG(f.facultad_nombre, ', ') 
+             FROM soyucab.facultad f 
+             WHERE f.email_persona = pr.email_persona 
+             AND f.tipo_rol = pr.tipo_rol 
+             AND f.fecha_inicio = pr.fecha_inicio),
+            'Sin facultad asignada'
+        ) AS programa_academico,
+        COALESCE(
+            (SELECT f.facultad_nombre 
+             FROM soyucab.facultad f 
+             WHERE f.email_persona = pr.email_persona 
+             AND f.tipo_rol = pr.tipo_rol 
+             AND f.fecha_inicio = pr.fecha_inicio 
+             LIMIT 1),
+            'Sin facultad'
+        ) AS facultad,
+        NULL::INTEGER AS semestre,
+        NULL::DECIMAL AS promedio,
+        pr.categoria AS titulo_obtenido,
+        'UCAB'::VARCHAR AS institucion_titulo,
+        NULL::INTEGER AS año_titulo,
+        NULL::VARCHAR AS contacto_institucional,
+        pr.categoria AS cargo,
+        NULL::VARCHAR AS ubicacion_trabajo,
+        pr.dedicacion,
+        NULL::VARCHAR AS empresa,
+        jsonb_build_object(
+            'categoria', pr.categoria,
+            'dedicacion', pr.dedicacion,
+            'fecha_ingreso', pr.fecha_ingreso
+        ) AS detalles_especificos
+    FROM soyucab.rolInstitucional ri
+    INNER JOIN soyucab.profesor pr 
+        ON ri.email_persona = pr.email_persona 
+        AND ri.tipo_rol = pr.tipo_rol 
+        AND ri.fecha_inicio = pr.fecha_inicio
+    WHERE ri.tipo_rol = 'Profesor'
+    
+    UNION ALL
+    
+    -- Información de Personal Administrativo
+    SELECT 
+        ri.email_persona,
+        ri.tipo_rol,
+        ri.fecha_inicio,
+        ri.fecha_finalizacion,
+        ri.estatus,
+        'Personal Administrativo'::TEXT AS categoria_rol,
+        'Administración UCAB'::VARCHAR AS programa_academico,
+        'Administración'::VARCHAR AS facultad,
+        NULL::INTEGER AS semestre,
+        NULL::DECIMAL AS promedio,
+        NULL::VARCHAR AS titulo_obtenido,
+        NULL::VARCHAR AS institucion_titulo,
+        NULL::INTEGER AS año_titulo,
+        NULL::VARCHAR AS contacto_institucional,
+        pa.cargo,
+        pa.ubicacion_de_trabajo AS ubicacion_trabajo,
+        pa.dedicacion,
+        'UCAB'::VARCHAR AS empresa,
+        jsonb_build_object(
+            'cargo', pa.cargo,
+            'ubicacion', pa.ubicacion_de_trabajo,
+            'dedicacion', pa.dedicacion
+        ) AS detalles_especificos
+    FROM soyucab.rolInstitucional ri
+    INNER JOIN soyucab.personal_administrativo pa 
+        ON ri.email_persona = pa.email_persona 
+        AND ri.tipo_rol = pa.tipo_rol 
+        AND ri.fecha_inicio = pa.fecha_inicio
+    WHERE ri.tipo_rol = 'Personal Administrativo'
+    
+    UNION ALL
+    
+    -- Información de Personal Obrero
+    SELECT 
+        ri.email_persona,
+        ri.tipo_rol,
+        ri.fecha_inicio,
+        ri.fecha_finalizacion,
+        ri.estatus,
+        'Personal Obrero'::TEXT AS categoria_rol,
+        'Servicios UCAB'::VARCHAR AS programa_academico,
+        'Servicios'::VARCHAR AS facultad,
+        NULL::INTEGER AS semestre,
+        NULL::DECIMAL AS promedio,
+        NULL::VARCHAR AS titulo_obtenido,
+        NULL::VARCHAR AS institucion_titulo,
+        NULL::INTEGER AS año_titulo,
+        NULL::VARCHAR AS contacto_institucional,
+        po.cargo,
+        NULL::VARCHAR AS ubicacion_trabajo,
+        po.dedicacion,
+        COALESCE(po.empresa_a_la_que_pertenece, 'UCAB') AS empresa,
+        jsonb_build_object(
+            'cargo', po.cargo,
+            'dedicacion', po.dedicacion,
+            'empresa', po.empresa_a_la_que_pertenece
+        ) AS detalles_especificos
+    FROM soyucab.rolInstitucional ri
+    INNER JOIN soyucab.personal_obrero po 
+        ON ri.email_persona = po.email_persona 
+        AND ri.tipo_rol = po.tipo_rol 
+        AND ri.fecha_inicio = po.fecha_inicio
+    WHERE ri.tipo_rol = 'Personal Obrero'
+)
+
+SELECT 
+    -- Información de la persona
+    p.email_persona,
+    p.nombres,
+    p.apellidos,
+    p.ci,
+    
+    -- Información del rol
+    ib.tipo_rol,
+    ib.categoria_rol,
+    ib.fecha_inicio,
+    ib.fecha_finalizacion,
+    ib.estatus,
+    
+    -- Información académica principal
+    ib.programa_academico,
+    ib.facultad,
+    ib.semestre,
+    ib.promedio,
+    
+    -- Información de título
+    ib.titulo_obtenido,
+    ib.institucion_titulo,
+    ib.año_titulo,
+    ib.titulo_obtenido AS titulo_completo,
+    
+    -- Información laboral (si aplica)
+    ib.cargo,
+    ib.ubicacion_trabajo,
+    ib.dedicacion,
+    ib.empresa,
+    
+    -- Información de contacto
+    ib.contacto_institucional,
+    
+    -- Detalles específicos del rol
+    ib.detalles_especificos,
+    
+    -- Cálculos derivados
+    CASE 
+        WHEN ib.fecha_finalizacion IS NULL THEN 'Activo'
+        ELSE 'Finalizado'
+    END AS estado_periodo,
+    
+    -- Duración del rol en años
+    CASE 
+        WHEN ib.fecha_finalizacion IS NOT NULL 
+        THEN EXTRACT(YEAR FROM AGE(ib.fecha_finalizacion, ib.fecha_inicio))
+        ELSE EXTRACT(YEAR FROM AGE(CURRENT_DATE, ib.fecha_inicio))
+    END AS duracion_años,
+    
+    -- Años desde el inicio
+    EXTRACT(YEAR FROM AGE(CURRENT_DATE, ib.fecha_inicio)) AS años_desde_inicio,
+    
+    -- Indicador de rol actual
+    CASE 
+        WHEN ib.estatus = 'Activo' AND ib.fecha_finalizacion IS NULL 
+        THEN TRUE
+        ELSE FALSE
+    END AS es_rol_actual,
+    
+    -- Periodo formateado
+    CASE 
+        WHEN ib.fecha_finalizacion IS NOT NULL
+        THEN TO_CHAR(ib.fecha_inicio, 'DD/MM/YYYY') || ' - ' || TO_CHAR(ib.fecha_finalizacion, 'DD/MM/YYYY')
+        ELSE TO_CHAR(ib.fecha_inicio, 'DD/MM/YYYY') || ' - Actual'
+    END AS periodo_formateado
+
+FROM informacion_base ib
+INNER JOIN soyucab.persona p ON ib.email_persona = p.email_persona
+ORDER BY p.apellidos, p.nombres, ib.fecha_inicio DESC;
