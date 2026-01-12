@@ -13,6 +13,7 @@ const relationRoutes = require('./routes/relationRoutes');
 const portfolioRoutes = require('./routes/portfolioRoutes');
 const postRoutes = require('./routes/postRoutes');
 const searchRoutes = require('./routes/searchRoutes');
+const rolesRoutes = require('./routes/rolesRoutes');
 
 const app = express();
 
@@ -95,6 +96,7 @@ app.use('/api/posts', postRoutes);
 app.use('/api/interactions', require('./routes/interactionRoutes'));
 app.use('/uploads', express.static('uploads'));
 app.use('/api', searchRoutes);
+app.use('/api/user-roles', rolesRoutes);
 // Ruta no encontrada
 app.use((req, res) => {
   res.status(404).json({
