@@ -13,9 +13,10 @@ const relationRoutes = require('./routes/relationRoutes');
 const portfolioRoutes = require('./routes/portfolioRoutes');
 const postRoutes = require('./routes/postRoutes');
 const searchRoutes = require('./routes/searchRoutes');
+const rolesRoutes = require('./routes/rolesRoutes');
 const announceRoutes = require('./routes/announceRoutes');
-
 const encuestasRoutes = require('./routes/encuestasRoutes');
+
 
 const app = express();
 
@@ -287,12 +288,9 @@ app.use('/api/posts', postRoutes);
 app.use('/api/interactions', require('./routes/interactionRoutes'));
 app.use('/uploads', express.static('uploads'));
 app.use('/api', searchRoutes);
+app.use('/api/user-roles', rolesRoutes);
 app.use('/api/announcements', announceRoutes);
-
-
 app.use('/api/encuestas', encuestasRoutes);
-
-
 // Ruta no encontrada
 app.use((req, res) => {
   res.status(404).json({

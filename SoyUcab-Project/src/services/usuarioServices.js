@@ -686,6 +686,55 @@ export default {
     }
   },
 
+  //=====================Roles===============================
+  async getUserRoles(email) {
+    try {
+        if (!email || email.trim() === '') {
+            return { 
+                success: false, 
+                error: 'Email del usuario es requerido' 
+            };
+        }
+
+        const response = await api.get(`/user-roles/user/${encodeURIComponent(email)}`);
+        
+        return {
+            success: true,
+            data: response.data.data,
+            message: 'Roles obtenidos correctamente'
+        };
+    } catch (error) {
+        console.error("[UserService] Error obteniendo roles del usuario:", error);
+        return {
+            success: false,
+            error: error.response?.data?.error || 'Error al obtener los roles del usuario',
+            status: error.response?.status
+        };
+    }
+},
+
+/**
+ * Obtiene los roles del usuario actual (sesión)
+ */
+async getMyRoles() {
+    try {
+        const user = this.getStoredUser();
+        if (!user || !user.email) {
+            return { 
+                success: false, 
+                error: 'No hay usuario en sesión' 
+            };
+        }
+        return await this.getUserRoles(user.email);
+    } catch (error) {
+        console.error("[UserService] Error obteniendo mis roles:", error);
+        return { 
+            success: false, 
+            error: error.message 
+        };
+    }
+},
+
   // ==================== UTILITIES ====================
 
   logout() {
