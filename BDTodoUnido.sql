@@ -2657,58 +2657,60 @@ RETURNS TABLE (
     nombre_usuario VARCHAR,
     cantidad_materias BIGINT,
     cantidad_estudiantes BIGINT,
-    nombre_facultad TEXT
+    nombre_facultad TEXT,
+    materias_tutor TEXT
 )
 AS $$
 BEGIN
     RETURN QUERY
     WITH TutorMetrics AS (
         SELECT
-            tm.email_tutor,
-            COUNT(DISTINCT tm.codigo_materia)::BIGINT AS total_materias,
-            COALESCE(est.total_estudiantes, 0)::BIGINT AS total_estudiantes
+            p.email_persona,
+            COUNT(DISTINCT tm.materia_nombre)::BIGINT AS total_materias,
+            COALESCE(est.total_estudiantes, 0)::BIGINT AS total_estudiantes,
+            STRING_AGG(DISTINCT tm.materia_nombre, ', ' ORDER BY tm.materia_nombre)::TEXT AS lista_materias
         FROM
-            soyucab.tutorias_materia tm
+            soyucab.persona p
+        LEFT JOIN
+            soyucab.tutorias_materia tm ON p.email_persona = tm.email_tutor
         LEFT JOIN (
             SELECT
-                ert.email_tutor,
-                COUNT(ert.email_estudiante)::BIGINT AS total_estudiantes
+                te.email_tutor,
+                COUNT(DISTINCT te.email_estudiante)::BIGINT AS total_estudiantes
             FROM
-                soyucab.tutorias_estudiante ert
+                soyucab.tutorias_estudiante te
             GROUP BY
-                ert.email_tutor
-        ) est ON tm.email_tutor = est.email_tutor
+                te.email_tutor
+        ) est ON p.email_persona = est.email_tutor
+        WHERE
+            p.tutor IS TRUE
         GROUP BY
-            tm.email_tutor, est.total_estudiantes
-    ),
-    TutorFacultades AS (
-        SELECT
-            f.email_persona,
-            STRING_AGG(f.facultad_nombre, ', ' ORDER BY f.facultad_nombre) AS lista_facultades
-        FROM
-            soyucab.facultad f
-        GROUP BY
-            f.email_persona
+            p.email_persona, est.total_estudiantes
     )
     SELECT
         (p.nombres || ' ' || p.apellidos)::TEXT AS nombre_tutor,
-        'Estudiante Tutor'::VARCHAR AS titulo_academico,
+        COALESCE(ta.nombre_titulo, 'Estudiante Tutor')::VARCHAR AS titulo_academico,
         m.nombre_usuario::VARCHAR,
-        tm.total_materias::BIGINT AS cantidad_materias,
-        tm.total_estudiantes::BIGINT AS cantidad_estudiantes,
-        tf.lista_facultades::TEXT AS nombre_facultad
+        COALESCE(tm.total_materias, 0)::BIGINT AS cantidad_materias,
+        COALESCE(tm.total_estudiantes, 0)::BIGINT AS cantidad_estudiantes,
+        COALESCE(e.facultad, 'Sin facultad asignada')::TEXT AS nombre_facultad,  -- De tabla estudiante
+        COALESCE(tm.lista_materias, 'Sin materias asignadas')::TEXT AS materias_tutor
     FROM
         soyucab.persona p
     JOIN
         soyucab.miembro m ON p.email_persona = m.email
-    JOIN
-        TutorMetrics tm ON p.email_persona = tm.email_tutor
     LEFT JOIN
-        TutorFacultades tf ON p.email_persona = tf.email_persona
+        TutorMetrics tm ON p.email_persona = tm.email_persona
+    LEFT JOIN
+        soyucab.estudiante e ON p.email_persona = e.email_estudiante  -- JOIN con estudiante
+    LEFT JOIN
+        soyucab.titulo_obtenido ta ON p.email_persona = ta.email_persona
     WHERE
         p.tutor IS TRUE
     ORDER BY
-        tm.total_materias DESC, p.apellidos;
+        COALESCE(tm.total_materias, 0) DESC,
+        COALESCE(tm.total_estudiantes, 0) DESC,
+        p.apellidos;
 
 END;
 $$ LANGUAGE plpgsql;
