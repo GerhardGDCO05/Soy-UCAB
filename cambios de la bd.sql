@@ -135,3 +135,94 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trg_notificar_like
 AFTER INSERT ON soyucab.me_gusta
 FOR EACH ROW EXECUTE FUNCTION soyucab.notificar_like();
+
+
+
+--NUEVAS ADICIONES DE LA VERSIÓN 13/01--
+
+ALTER TABLE soyucab.notificacion 
+ADD COLUMN metadata JSONB;
+
+SELECT email_destino, titulo, contenido, metadata, tipo_notificacion
+FROM soyucab.notificacion
+WHERE email_destino = 'mike@gmail.com'
+ORDER BY fecha_hora DESC
+LIMIT 5;
+
+CREATE TABLE IF NOT EXISTS soyucab.anuncio_vistas (
+    fecha_creacion TIMESTAMP,
+    creador_email VARCHAR(50),
+    viewer_email VARCHAR(50),
+    fecha_vista TIMESTAMP DEFAULT NOW(),
+    
+    PRIMARY KEY (fecha_creacion, creador_email, viewer_email),
+    
+    FOREIGN KEY (fecha_creacion, creador_email) 
+        REFERENCES soyucab.anuncio(fecha_creacion, creador_email)
+        ON DELETE CASCADE
+);
+
+-- 1. Eliminar el trigger existente de las notifs que no me estaba funcionando bien
+DROP TRIGGER IF EXISTS trg_notificar_comentario ON soyucab.comentario;
+
+-- 2. Recrear la función con manejo de conflictos
+CREATE OR REPLACE FUNCTION soyucab.notificar_comentario()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Solo notificar si el comentador NO es el dueño del post
+    IF NEW.email_comentador != NEW.email_creador_publicacion THEN
+        BEGIN
+            -- Insertar notificación con timestamp único
+            INSERT INTO soyucab.notificacion 
+            (email_destino, email_envia, titulo, contenido, tipo_notificacion, estado, prioridad, fecha_hora)
+            VALUES (
+                NEW.email_creador_publicacion,
+                NEW.email_comentador,
+                'Nuevo comentario',
+                'ha comentado tu publicación.',
+                'publicacion',
+                'pendiente',
+                'media',
+                NOW() + (random() * interval '100 milliseconds')
+            );
+        EXCEPTION
+            WHEN unique_violation THEN
+                -- Ignorar duplicados silenciosamente
+                NULL;
+        END;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 3. Recrear el trigger
+CREATE TRIGGER trg_notificar_comentario
+AFTER INSERT ON soyucab.comentario
+FOR EACH ROW
+EXECUTE FUNCTION soyucab.notificar_comentario();
+
+-- La PK actual no permite que 2 personas voten por la misma opción
+-- Necesitamos cambiarla para incluir el email_encuestado
+
+ALTER TABLE soyucab.opcion DROP CONSTRAINT opcion_pkey;
+
+ALTER TABLE soyucab.opcion 
+ADD PRIMARY KEY (tipo_encuesta, titulo_encuesta, numero_opcion, email_encuestado);
+
+-- También necesitamos una tabla para guardar el TEXTO de cada opción
+CREATE TABLE soyucab.opcion_texto (
+    tipo_encuesta VARCHAR(50),
+    titulo_encuesta VARCHAR(100),
+    numero_opcion SMALLINT,
+    texto_opcion TEXT NOT NULL,
+    
+    PRIMARY KEY (tipo_encuesta, titulo_encuesta, numero_opcion),
+    
+    CONSTRAINT fk_opcion_texto_encuesta
+        FOREIGN KEY (tipo_encuesta, titulo_encuesta)
+        REFERENCES soyucab.encuesta(tipo_encuesta, titulo)
+        ON DELETE CASCADE
+);
+
+

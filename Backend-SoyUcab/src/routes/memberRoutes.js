@@ -21,4 +21,13 @@ router.put('/:email', memberController.updateMember);
 // POST /api/members - Crear nuevo miembro
 router.post('/', memberController.createMember);
 
+router.get('/search', memberController.searchMembers);
+
+// En routes/memberRoutes.js
+router.get('/advanced-search', memberController.advancedSearch);
+// En tu archivo de rutas (probablemente routes/members.js o similar)
+router.get('/members/:email', memberController.getMemberByEmail);
+
+// ANTES de la ruta /members/advanced-search
+router.get('/members/by-email', memberController.getMemberByEmailSimple);
 module.exports = router;

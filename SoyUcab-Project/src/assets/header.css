@@ -171,6 +171,18 @@ img {
     background-image: url(../../../public/usuario.png);
 }
 
+#anuncio {
+    background-image: url(../../../public/anuncio.png)
+}
+
+#encuesta {
+    background-image: url(../../../public/polling.png)
+}
+
+#search {
+    background-image: url(../../../public/index.png)  
+}
+
 #reportsButtom {
     border-radius: 2rem;
     border: 1px solid #ccc;
@@ -229,4 +241,28 @@ button:hover {
     background-color: var(--danger-color);
     color: white;
     transform: translateY(-0.1rem);
+}
+
+.buscador {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-advanced-search {
+    background-image: url(../../../public/index.png);
+    background-size: contain; /* o cover */
+    background-repeat: no-repeat;
+    background-position: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 0%;
+    cursor: pointer;
+}
+
+/* Ocultar el ícono de Font Awesome si quieres usar solo tu imagen */
+.btn-advanced-search i {
+    display: none;
 }

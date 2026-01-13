@@ -428,7 +428,287 @@ const memberController = {
     } catch (error) {
       res.status(500).json({ success: false, error: 'Error al desactivar' });
     }
-  }
+  },
+
+  // Buscar usuarios 
+
+async searchMembers(req, res) {
+        try {
+            const { q } = req.query;
+            
+            console.log("🔍 Buscando usuarios con query:", q);
+            
+            if (!q || q.length < 2) {
+                return res.json({ success: true, data: [] });
+            }
+            
+            const result = await db.query(
+                `SELECT email, nombre_usuario, nombres, apellidos 
+                 FROM soyucab.miembro 
+                 WHERE LOWER(nombre_usuario) LIKE LOWER($1) 
+                 OR LOWER(nombres) LIKE LOWER($1)
+                 OR LOWER(apellidos) LIKE LOWER($1)
+                 OR LOWER(email) LIKE LOWER($1)
+                 LIMIT 10`,
+                [`%${q}%`]
+            );
+            
+            console.log("✅ Usuarios encontrados:", result.rows.length);
+            res.json({ success: true, data: result.rows });
+        } catch (error) {
+            console.error("❌ Error buscando miembros:", error);
+            res.status(500).json({ success: false, error: 'Error en búsqueda' });
+        }
+    },
+    // Búsqueda avanzada con filtros múltiples y grados de separación
+async advancedSearch(req, res) {
+    try {
+        const { 
+            search, 
+            tipo, 
+            genero, 
+            facultad, 
+            carrera, 
+            pais,
+            find_connections // Si es true, busca conexiones del usuario actual
+        } = req.query;
+        
+        const userEmail = req.query.user_email; // Email del usuario que busca (para calcular conexiones)
+
+        console.log("🔍 Búsqueda avanzada:", { search, tipo, genero, facultad, carrera, pais, userEmail });
+
+        let query = `
+            WITH RECURSIVE conexiones AS (
+                -- Nivel 0: El usuario mismo
+                SELECT 
+                    m.email,
+                    m.email as email_inicial,
+                    0 as grado_separacion,
+                    ARRAY[m.email] as ruta
+                FROM soyucab.miembro m
+                WHERE m.email = $1
+                
+                UNION
+                
+                -- Niveles 1, 2, 3: Conexiones indirectas
+                SELECT 
+                    r.usuario_destino as email,
+                    c.email_inicial,
+                    c.grado_separacion + 1 as grado_separacion,
+                    c.ruta || r.usuario_destino as ruta
+                FROM conexiones c
+                JOIN soyucab.relacion r ON c.email = r.usuario_origen
+                WHERE r.estado = 'aceptada'
+                AND c.grado_separacion < 3
+                AND NOT (r.usuario_destino = ANY(c.ruta)) -- Evitar ciclos
+            )
+            SELECT DISTINCT
+                m.email,
+                m.nombre_usuario,
+                p.nombres,
+                p.apellidos,
+                p.sexo,
+                CASE 
+                    WHEN e.email_estudiante IS NOT NULL THEN 'Estudiante'
+                    WHEN eg.email_egresado IS NOT NULL THEN 'Egresado'
+                    WHEN EXISTS (
+                        SELECT 1 FROM soyucab.profesor pr 
+                        WHERE pr.email_persona = m.email
+                    ) THEN 'Profesor'
+                    WHEN EXISTS (
+                        SELECT 1 FROM soyucab.personal_administrativo pa 
+                        WHERE pa.email_persona = m.email
+                    ) THEN 'Personal Administrativo'
+                    WHEN EXISTS (
+                        SELECT 1 FROM soyucab.personal_obrero po 
+                        WHERE po.email_persona = m.email
+                    ) THEN 'Personal Obrero'
+                    ELSE 'Miembro'
+                END as tipo_miembro,
+                e.facultad as facultad,
+                e.carrera_programa,
+                e.semestre,
+                eg.pais,
+                eg.estado as estado_egresado,
+                eg.facultad as facultad_egresado,
+                COALESCE(c.grado_separacion, 999) as grado_separacion,
+                CASE 
+                    WHEN c.grado_separacion = 0 THEN 'Tú'
+                    WHEN c.grado_separacion = 1 THEN 'Conexión directa'
+                    WHEN c.grado_separacion = 2 THEN '2do grado'
+                    WHEN c.grado_separacion = 3 THEN '3er grado'
+                    ELSE 'Sin conexión'
+                END as tipo_conexion
+            FROM soyucab.miembro m
+            JOIN soyucab.persona p ON m.email = p.email_persona
+            LEFT JOIN soyucab.estudiante e ON m.email = e.email_estudiante
+            LEFT JOIN soyucab.egresado eg ON m.email = eg.email_egresado
+            LEFT JOIN conexiones c ON m.email = c.email
+            WHERE m.email != $1
+        `;
+
+        const params = [userEmail || ''];
+        let paramCount = 1;
+
+        // Filtro por búsqueda de texto
+        if (search && search.trim()) {
+            paramCount++;
+            query += ` AND (
+                LOWER(m.nombre_usuario) LIKE LOWER($${paramCount})
+                OR LOWER(p.nombres) LIKE LOWER($${paramCount})
+                OR LOWER(p.apellidos) LIKE LOWER($${paramCount})
+                OR LOWER(m.email) LIKE LOWER($${paramCount})
+            )`;
+            params.push(`%${search.trim()}%`);
+        }
+
+        // Filtro por tipo de usuario
+        if (tipo) {
+            switch(tipo) {
+                case 'Estudiante':
+                    query += ` AND e.email_estudiante IS NOT NULL`;
+                    break;
+                case 'Egresado':
+                    query += ` AND eg.email_egresado IS NOT NULL`;
+                    break;
+                case 'Profesor':
+                    query += ` AND EXISTS (SELECT 1 FROM soyucab.profesor pr WHERE pr.email_persona = m.email)`;
+                    break;
+                case 'Personal Administrativo':
+                    query += ` AND EXISTS (SELECT 1 FROM soyucab.personal_administrativo pa WHERE pa.email_persona = m.email)`;
+                    break;
+                case 'Personal Obrero':
+                    query += ` AND EXISTS (SELECT 1 FROM soyucab.personal_obrero po WHERE po.email_persona = m.email)`;
+                    break;
+            }
+        }
+
+        // Filtro por género
+        if (genero) {
+            paramCount++;
+            query += ` AND p.sexo = $${paramCount}`;
+            params.push(genero);
+        }
+
+        // Filtro por facultad
+        if (facultad) {
+            paramCount++;
+            query += ` AND (e.facultad ILIKE $${paramCount} OR eg.facultad ILIKE $${paramCount})`;
+            params.push(`%${facultad}%`);
+        }
+
+        // Filtro por carrera
+        if (carrera) {
+            paramCount++;
+            query += ` AND e.carrera_programa ILIKE $${paramCount}`;
+            params.push(`%${carrera}%`);
+        }
+
+        // Filtro por país (solo egresados)
+        if (pais) {
+            paramCount++;
+            query += ` AND eg.pais = $${paramCount}`;
+            params.push(pais.toUpperCase());
+        }
+
+        // Ordenar por grado de separación (conexiones más cercanas primero)
+        query += ` ORDER BY grado_separacion ASC, p.apellidos ASC LIMIT 50`;
+
+        console.log("📊 Ejecutando query con params:", params);
+        const result = await db.query(query, params);
+
+        console.log(`✅ Resultados encontrados: ${result.rows.length}`);
+        
+        res.json({ 
+            success: true, 
+            data: result.rows,
+            total: result.rows.length
+        });
+
+    } catch (error) {
+        console.error('❌ Error en búsqueda avanzada:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Error en búsqueda avanzada',
+            details: error.message 
+        });
+    }
+},
+// En memberController.js, agrega este método antes de advancedSearch:
+
+async getMemberByEmailSimple(req, res) {
+    try {
+        const { email } = req.query;
+        
+        if (!email) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Email requerido' 
+            });
+        }
+
+        console.log("🔍 Buscando miembro:", email);
+
+        const query = `
+            SELECT 
+                m.email,
+                m.nombre_usuario,
+                m.telefono,
+                m.biografia,
+                m.estado_cuenta,
+                m.privacidad_perfil,
+                p.nombres,
+                p.apellidos,
+                p.ci,
+                p.sexo,
+                p.fecha_nacimiento,
+                e.semestre,
+                e.carrera_programa,
+                e.facultad as facultad_estudiante,
+                eg.facultad as facultad_egresado,
+                eg.pais,
+                CASE 
+                    WHEN e.email_estudiante IS NOT NULL THEN 'Estudiante'
+                    WHEN eg.email_egresado IS NOT NULL THEN 'Egresado'
+                    WHEN EXISTS (SELECT 1 FROM soyucab.profesor pr WHERE pr.email_persona = m.email) THEN 'Profesor'
+                    WHEN EXISTS (SELECT 1 FROM soyucab.personal_administrativo pa WHERE pa.email_persona = m.email) THEN 'Personal Administrativo'
+                    WHEN EXISTS (SELECT 1 FROM soyucab.personal_obrero po WHERE po.email_persona = m.email) THEN 'Personal Obrero'
+                    ELSE 'Miembro'
+                END as tipo_miembro
+            FROM soyucab.miembro m
+            LEFT JOIN soyucab.persona p ON m.email = p.email_persona
+            LEFT JOIN soyucab.estudiante e ON m.email = e.email_estudiante
+            LEFT JOIN soyucab.egresado eg ON m.email = eg.email_egresado
+            WHERE m.email = $1
+        `;
+
+        const result = await db.query(query, [email]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Usuario no encontrado' 
+            });
+        }
+
+        console.log("✅ Usuario encontrado:", result.rows[0].nombre_usuario);
+        res.json({ 
+            success: true, 
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('❌ Error en getMemberByEmailSimple:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Error al obtener miembro',
+            details: error.message 
+        });
+    }
+},
+
+
+
 };
 
 module.exports = memberController;

@@ -1,5 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import usuarioServices from '@/services/usuarioServices' // Importamos el servicio
+import PostView from '@/components/posts.vue'
+import PublicProfile from '@/components/PublicProfile.vue' 
+import Encuesta from '@/components/encuesta.vue'
+
 
 const routes = [
   {
@@ -86,7 +90,47 @@ const routes = [
   path: '/notifications',
   name: 'Notifications',
   component: () => import('../components/NotificationsView.vue')
-}
+},
+{
+  path: '/announces',
+  name: 'Announces',
+  component: () => import('../components/Announces.vue'),
+},
+
+{
+    path: '/post/:email/:fecha',
+    name: 'PostView',
+    component: PostView
+},
+{
+  path: '/advanced-search',
+  name: 'Buscar',
+  component: () => import('../components/AdvancedSearch.vue'),
+},
+  {
+    path: '/profile/:email',  // ← Ruta para perfiles públicos
+    name: 'PublicProfile',
+    component: PublicProfile,
+    props: true,  // Importante: pasa el parámetro :email como prop
+    meta: { requiresAuth: true }
+  },
+ {
+    path: '/semaforo',
+    name: 'ReporteSemaforo',
+    // Usamos carga dinámica para evitar errores de importación al inicio
+    component: () => import('../components/reportesVue/ReporteSemaforo.vue'),
+    meta: { requiresAuth: true } // Agrégalo si quieres que esté protegido
+  },
+  // En rou
+
+  {
+    path: '/encuesta',
+    name: 'Encuesta',
+    component: Encuesta,
+    meta: { requiresAuth: true }
+  },
+
+
 ]
 
 const router = createRouter({
