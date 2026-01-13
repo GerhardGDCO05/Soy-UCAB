@@ -12,6 +12,9 @@
                 @input="handleSearch"
                 @focus="showResults = true"
             >
+            <button @click="goToAdvancedSearch" class="btn-advanced-search" title="Búsqueda avanzada">
+                <i class="fas fa-sliders-h"></i>
+            </button>
             <div v-if="showResults && searchResults.length > 0" class="search-results">
                 <div 
                     v-for="result in searchResults" 
@@ -70,6 +73,9 @@
             <button id="conversaciones" title="Mensajes"></button>
             <button id="campana" @click="gotoNotifications" title="Notificaciones"></button>
             <button id="perfil" @click="gotoProfile" title="Mi Perfil"></button>
+            <button id="anuncio" @click="gotoAnnounce" title="Anuncios"></button>
+            <button id="encuesta" @click="gotoEncuesta" title="Encuesta"></button>
+            <button id="search" @click="goToAdvancedSearch" title="Search"></button>
             
             <button id="reportsButtom" @click="gotoAllReports">
                 <div class="contenido-boton">
@@ -202,6 +208,20 @@ export default {
             if (this.$route.path !== '/notifications') {
                 this.$router.push('/notifications');
             }
+        },
+        gotoAnnounce() {
+            if (this.$route.path !== '/announces') {
+                this.$router.push('/announces');
+            }
+        },
+        gotoEncuesta() {
+            if (this.$route.path !== '/encuesta') {
+                this.$router.push('/encuesta');
+            }
+        },
+        goToAdvancedSearch() {
+            this.$router.push('/advanced-search');
+            this.showResults = false;
         }
     }
 };
