@@ -114,14 +114,13 @@ const routes = [
     props: true,  // Importante: pasa el parámetro :email como prop
     meta: { requiresAuth: true }
   },
- /*{
+ {
     path: '/semaforo',
     name: 'ReporteSemaforo',
     // Usamos carga dinámica para evitar errores de importación al inicio
-    component: () => import('../components/reportesVue/ReporteSemaforo.vue'),
+    component: () => import('../components/reportesVue/SemaforoPagos.vue'),
     meta: { requiresAuth: true } // Agrégalo si quieres que esté protegido
-  },*/
-  // En rou
+  },
 
   {
     path: '/encuesta',
