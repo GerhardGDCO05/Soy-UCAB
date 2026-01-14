@@ -83,7 +83,7 @@ ADD PRIMARY KEY (email_comentador, email_creador_publicacion, fecha_creacion_pub
 -- Nota: La tabla envia_una ahora debe apuntar a la nueva PK de 4 campos
 ALTER TABLE soyucab.envia_una 
 ADD CONSTRAINT fk_envia_una_comentario 
-FOREIGN KEY (email_creador_publicacion, email_comentador, fecha_creacion_publicacion, fecha_hora) 
+FOREIGN KEY (email_creador_publicacion, email_comentador, fecha_creacion_publicacion, fecha_envio) 
 REFERENCES soyucab.comentario(email_creador_publicacion, email_comentador, fecha_creacion_publicacion, fecha_creacion)
 ON UPDATE CASCADE ON DELETE CASCADE;
 
@@ -174,7 +174,7 @@ BEGIN
         BEGIN
             -- Insertar notificación con timestamp único
             INSERT INTO soyucab.notificacion 
-            (email_destino, email_envia, titulo, contenido, tipo_notificacion, estado, prioridad, fecha_hora)
+            (email_destino, email_envia, titulo, contenido, tipo_notificacion, estado, prioridad, fecha_creacion)
             VALUES (
                 NEW.email_creador_publicacion,
                 NEW.email_comentador,
@@ -224,5 +224,9 @@ CREATE TABLE soyucab.opcion_texto (
         REFERENCES soyucab.encuesta(tipo_encuesta, titulo)
         ON DELETE CASCADE
 );
+
+
+
+
 
 

@@ -22,6 +22,7 @@
             <span class="label">Publicaciones</span>
           </div>
         </div>
+        
       </aside>
 
       <main class="feed-content">
@@ -87,15 +88,21 @@
           </div>
           
           <div class="post-body">
-            <p>{{ post.caption }}</p>
-            <img v-if="post.tipo_contenido === 'imagen'" :src="post.descripcion_publicacion" class="post-media" />
-            <video v-if="post.tipo_contenido === 'video'" controls class="post-media">
-              <source :src="post.descripcion_publicacion" type="video/mp4">
-            </video>
-            <a v-if="post.tipo_contenido === 'enlace'" :href="post.descripcion_publicacion" target="_blank" class="post-link">
-              Ver enlace externo
-            </a>
-          </div>
+  <p>{{ post.caption }}</p>
+  
+  <!-- Si tiene contenido multimedia/enlace, mostrar como link -->
+  <div class="post-body">
+  <p></p>
+  
+  <!-- Si tiene contenido multimedia/enlace, mostrar como link -->
+  <div v-if="post.descripcion_publicacion" class="post-link-container">
+    <i class="fas fa-link"></i>
+    <a :href="formatUrl(post.descripcion_publicacion)" target="_blank" class="post-link">
+      {{ post.descripcion_publicacion }}
+    </a>
+  </div>
+</div>
+</div>
 
           <div class="post-footer">
             <button 
@@ -185,6 +192,8 @@
                     <strong>@{{ user.nombre_usuario }}</strong>
                     <small>{{ user.email }}</small>
                   </div>
+
+                  
                 </div>
               </div>
             </div>
@@ -274,6 +283,16 @@ export default {
         this.userHandle = userObj.nombre_usuario || 'usuario';
       }
     },
+
+     formatUrl(url) {
+    if (!url) return '';
+    // Si ya tiene http:// o https://, dejarlo como está
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    // Si no, agregar https://
+    return 'https://' + url;
+  },
 
     formatPostgresDate(date) {
       if (!date) return null;

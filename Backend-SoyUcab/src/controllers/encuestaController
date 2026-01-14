@@ -259,18 +259,18 @@ const encuestaController = {
     // 7. Obtener mis encuestas (para dependencias/organizaciones)
     async getMisEncuestas(req, res) {
         try {
-            console.log("🔥🔥🔥 ===== GET MIS ENCUESTAS - INICIO ===== 🔥🔥🔥");
-            console.log("📧 req.params:", req.params);
-            console.log("📧 req.query:", req.query);
-            console.log("📧 req.path:", req.path);
-            console.log("📧 req.originalUrl:", req.originalUrl);
+            console.log("===== GET MIS ENCUESTAS - INICIO ===== ");
+            console.log(" req.params:", req.params);
+            console.log(" req.query:", req.query);
+            console.log(" req.path:", req.path);
+            console.log(" req.originalUrl:", req.originalUrl);
             
             const { email } = req.params;
-            console.log("📧 Email extraído:", email);
-            console.log("📧 Tipo de email:", typeof email);
+            console.log(" Email extraído:", email);
+            console.log(" Tipo de email:", typeof email);
 
             if (!email) {
-                console.log("❌ Email no proporcionado");
+                console.log(" Email no proporcionado");
                 return res.status(400).json({ success: false, error: 'Email no proporcionado' });
             }
 
@@ -294,10 +294,10 @@ const encuestaController = {
                 console.log("📋 Primera encuesta:", result.rows[0].titulo);
             }
             
-            console.log("🔥🔥🔥 ===== ENVIANDO RESPUESTA ===== 🔥🔥🔥");
+            console.log(" ===== ENVIANDO RESPUESTA ===== ");
             res.json({ success: true, data: result.rows });
         } catch (error) {
-            console.error('❌❌❌ ERROR EN GET MIS ENCUESTAS:', error);
+            console.error(' ERROR EN GET MIS ENCUESTAS:', error);
             console.error('Stack trace:', error.stack);
             res.status(500).json({ success: false, error: error.message });
         }
@@ -306,10 +306,10 @@ const encuestaController = {
     // 8. Eliminar encuesta (solo el creador puede eliminar)
     async deleteEncuesta(req, res) {
         try {
-            console.log("🗑️ DELETE ENCUESTA - Inicio");
+            console.log(" DELETE ENCUESTA - Inicio");
             const { tipo_encuesta, titulo } = req.params;
             const { email_encuestador } = req.body;
-            console.log("🗑️ Parámetros:", { tipo_encuesta, titulo, email_encuestador });
+            console.log(" Parámetros:", { tipo_encuesta, titulo, email_encuestador });
 
             await db.query('BEGIN');
 
@@ -333,7 +333,7 @@ const encuestaController = {
                     return res.status(403).json({ success: false, error: 'No tienes permiso para eliminar esta encuesta' });
                 }
 
-                console.log("🗑️ Eliminando datos relacionados...");
+                console.log(" Eliminando datos relacionados...");
 
                 // Eliminar en orden debido a las foreign keys
                 await db.query(

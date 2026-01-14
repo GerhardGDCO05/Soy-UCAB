@@ -159,48 +159,67 @@ async addComment(req, res) {
 },
 
     // Obtener notificaciones
-    async getNotifications(req, res) {
-        const { email } = req.params;
-        try {
-            const query = `
-                SELECT n.*, m.nombre_usuario
-                FROM soyucab.notificacion n
-                JOIN soyucab.miembro m ON n.email_envia = m.email
-                WHERE n.email_destino = $1
-                ORDER BY n.fecha_hora DESC 
-                LIMIT 15
-            `;
-            const result = await db.query(query, [email]);
-            
-            const notifications = result.rows.map(notif => ({
-                ...notif,
-                fecha_hora: formatTimestamp(notif.fecha_hora)
-            }));
-            
-            res.json({ success: true, data: notifications });
-        } catch (error) {
-            console.error("Error al obtener notificaciones:", error);
-            res.status(500).json({ success: false, error: error.message });
-        }
-    },
-    // Al final de interactionController, antes de module.exports
+   // Obtener notificaciones
+async getNotifications(req, res) {
+    const { email } = req.params;
+    try {
+        const query = `
+            SELECT n.*, m.nombre_usuario
+            FROM soyucab.notificacion n
+            JOIN soyucab.miembro m ON n.email_envia = m.email
+            WHERE n.email_destino = $1
+            ORDER BY n.fecha_hora DESC 
+            LIMIT 15
+        `;
+        const result = await db.query(query, [email]);
+        
+        const notifications = result.rows.map(notif => ({
+            ...notif,
+            fecha_hora: formatTimestamp(notif.fecha_hora)  // ✅ Cambiar a fecha_hora
+        }));
+        
+        res.json({ success: true, data: notifications });
+    } catch (error) {
+        console.error("Error al obtener notificaciones:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+},
 
 async markNotificationAsRead(req, res) {
     try {
         const { email } = req.params;
-        const { fecha_hora } = req.body;
+        const { fecha_hora } = req.body;  // ✅ Cambiar a fecha_hora
 
         await db.query(
             `UPDATE soyucab.notificacion 
              SET estado = 'leida'
              WHERE email_destino = $1 
-             AND fecha_hora = $2::timestamptz`,
+             AND fecha_hora = $2::timestamptz`,  // ✅ Cambiar a fecha_hora
             [email, fecha_hora]
         );
 
         res.json({ success: true, message: 'Notificación marcada como leída' });
     } catch (error) {
         console.error("Error marcando notificación:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+},
+
+async markAllNotificationsAsRead(req, res) {
+    try {
+        const { email } = req.params;
+
+        await db.query(
+            `UPDATE soyucab.notificacion 
+             SET estado = 'leida'
+             WHERE email_destino = $1 
+             AND estado = 'pendiente'`,
+            [email]
+        );
+
+        res.json({ success: true, message: 'Todas las notificaciones marcadas como leídas' });
+    } catch (error) {
+        console.error("Error marcando todas las notificaciones:", error);
         res.status(500).json({ success: false, error: error.message });
     }
 },

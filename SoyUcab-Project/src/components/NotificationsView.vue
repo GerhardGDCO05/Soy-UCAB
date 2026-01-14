@@ -5,37 +5,63 @@
       <main class="notifications-content panel">
         <div class="notif-header">
           <h2>Notificaciones</h2>
-          <button @click="markAllAsRead" class="btn-link">Marcar todas como leídas</button>
-        </div>
-
-        <div v-if="loading" class="loading">Cargando...</div>
-
-        <div v-else-if="notifications.length === 0" class="no-notifs">
-          No tienes actividad reciente.
-        </div>
-
-        <div v-else class="notif-list">
-          <div 
-            v-for="n in notifications" 
-            :key="n.fecha_hora" 
-            class="notif-item" 
-            :class="{ 'unread': n.estado === 'pendiente', 'clickable': isClickable(n) }"
-            @click="handleNotificationClick(n)"
-          >
-            <div class="notif-avatar">
-              <i :class="getNotifIcon(n)"></i>
-            </div>
-            <div class="notif-body">
-              <p>
-                <strong>@{{ n.nombre_usuario }}</strong> {{ n.contenido }}
-              </p>
-              <small>{{ formatDate(n.fecha_hora) }}</small>
-            </div>
-            <div v-if="isClickable(n)" class="notif-action">
-              <i class="fas fa-chevron-right"></i>
-            </div>
+          <div class="header-actions">
+            <button 
+              @click="toggleNotifications" 
+              class="btn-toggle"
+              :class="{ 'active': notificationsEnabled }"
+            >
+              <i :class="notificationsEnabled ? 'fas fa-bell' : 'fas fa-bell-slash'"></i>
+              {{ notificationsEnabled ? 'Activadas' : 'Desactivadas' }}
+            </button>
+            <button 
+              v-if="notificationsEnabled"
+              @click="markAllAsRead" 
+              class="btn-link"
+            >
+              Marcar todas como leídas
+            </button>
           </div>
         </div>
+
+        <!-- Mensaje cuando las notificaciones están desactivadas -->
+        <div v-if="!notificationsEnabled" class="notifications-disabled">
+          <i class="fas fa-bell-slash"></i>
+          <h3>Notificaciones desactivadas</h3>
+          <p>Has desactivado las notificaciones. Actívalas para ver tu actividad reciente.</p>
+        </div>
+
+        <!-- Contenido normal de notificaciones -->
+        <template v-else>
+          <div v-if="loading" class="loading">Cargando...</div>
+
+          <div v-else-if="notifications.length === 0" class="no-notifs">
+            No tienes actividad reciente.
+          </div>
+
+          <div v-else class="notif-list">
+            <div 
+              v-for="n in notifications" 
+              :key="n.fecha_hora" 
+              class="notif-item" 
+              :class="{ 'unread': n.estado === 'pendiente', 'clickable': isClickable(n) }"
+              @click="handleNotificationClick(n)"
+            >
+              <div class="notif-avatar">
+                <i :class="getNotifIcon(n)"></i>
+              </div>
+              <div class="notif-body">
+                <p>
+                  <strong>@{{ n.nombre_usuario }}</strong> {{ n.contenido }}
+                </p>
+                <small>{{ formatDate(n.fecha_hora) }}</small>
+              </div>
+              <div v-if="isClickable(n)" class="notif-action">
+                <i class="fas fa-chevron-right"></i>
+              </div>
+            </div>
+          </div>
+        </template>
       </main>
     </div>
   </div>
@@ -52,10 +78,17 @@ export default {
     return {
       notifications: [],
       loading: false,
-      userEmail: ''
+      userEmail: '',
+      notificationsEnabled: true
     }
   },
   methods: {
+    toggleNotifications() {
+      this.notificationsEnabled = !this.notificationsEnabled;
+      // Guardar la preferencia en localStorage
+      localStorage.setItem('notificationsEnabled', this.notificationsEnabled);
+    },
+
     async fetchNotifications() {
       this.loading = true;
       try {
@@ -171,7 +204,17 @@ export default {
     const userData = JSON.parse(localStorage.getItem('user'));
     if (userData) {
       this.userEmail = userData.email;
-      this.fetchNotifications();
+      
+      // Recuperar la preferencia de notificaciones guardada
+      const savedPreference = localStorage.getItem('notificationsEnabled');
+      if (savedPreference !== null) {
+        this.notificationsEnabled = savedPreference === 'true';
+      }
+      
+      // Solo cargar notificaciones si están activadas
+      if (this.notificationsEnabled) {
+        this.fetchNotifications();
+      }
     }
   }
 }
@@ -186,13 +229,76 @@ export default {
   border-bottom: 1px solid #eee; 
   display: flex; 
   justify-content: space-between; 
-  align-items: center; 
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .notif-header h2 {
   margin: 0;
   font-size: 20px;
   color: #14171a;
+}
+
+.header-actions {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.btn-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 2px solid #e1e8ed;
+  border-radius: 20px;
+  background: white;
+  color: #657786;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-toggle i {
+  font-size: 16px;
+}
+
+.btn-toggle.active {
+  background: #1da1f2;
+  border-color: #1da1f2;
+  color: white;
+}
+
+.btn-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.notifications-disabled {
+  text-align: center;
+  padding: 80px 40px;
+  color: #657786;
+}
+
+.notifications-disabled i {
+  font-size: 64px;
+  color: #aab8c2;
+  margin-bottom: 20px;
+}
+
+.notifications-disabled h3 {
+  font-size: 24px;
+  color: #14171a;
+  margin: 0 0 10px 0;
+  font-weight: 700;
+}
+
+.notifications-disabled p {
+  font-size: 16px;
+  margin: 0;
+  line-height: 1.5;
 }
 
 .loading, .no-notifs {
@@ -271,5 +377,22 @@ export default {
 .btn-link:hover {
   color: #1a8cd8;
   text-decoration: underline;
+}
+
+@media (max-width: 600px) {
+  .notif-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .header-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .btn-toggle {
+    justify-content: center;
+  }
 }
 </style>

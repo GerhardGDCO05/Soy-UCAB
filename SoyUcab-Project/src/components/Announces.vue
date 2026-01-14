@@ -13,6 +13,24 @@
           <h2>Anuncios</h2>
           <p>Cartelera Institucional</p>
           <hr />
+          
+          <!-- PESTAÑAS DE NAVEGACIÓN -->
+          <div class="view-tabs">
+            <button 
+              @click="vistaActual = 'anuncios'" 
+              :class="{ active: vistaActual === 'anuncios' }"
+            >
+              <i class="fas fa-list"></i> Lista
+            </button>
+            <button 
+              @click="vistaActual = 'calendario'" 
+              :class="{ active: vistaActual === 'calendario' }"
+            >
+              <i class="fas fa-calendar"></i> Calendario
+            </button>
+          </div>
+
+          <hr />
           <div class="user-context-box">
             <small>Usuario:</small>
             <strong>{{ user.nombre_usuario || 'Cargando...' }}</strong>
@@ -23,91 +41,99 @@
 
       <main class="feed-content">
         
-        <div v-if="puedeCrear" class="create-post panel announce-form">
-          <h3><i class="fas fa-plus"></i> Publicar nuevo anuncio</h3>
-          
-          <input 
-            v-model="announceForm.titulo" 
-            type="text" 
-            placeholder="Título del anuncio" 
-            class="input-title"
-          />
-
-          <textarea 
-            v-model="announceForm.contenido" 
-            placeholder="¿Qué quieres informar a la comunidad?"
-            rows="3"
-          ></textarea>
-          
-          <div class="post-actions-row">
-            <div class="selectors">
-              <select v-model="announceForm.prioridad">
-                <option value="baja">Baja</option>
-                <option value="media">Media</option>
-                <option value="alta">Alta</option>
-                <option value="urgente">Urgente</option>
-              </select>
-
-              <select v-model="announceForm.tipo_anuncio">
-                <option value="informativo">Informativo</option>
-                <option value="laboral">Laboral</option>
-                <option value="cultural">Cultural</option>
-                <option value="academico">Académico</option>
-              </select>
-              
-              <input type="date" v-model="announceForm.fecha_expiracion" title="Fecha de vencimiento" />
-            </div>
-          </div>
-
-          <div class="destinatarios-section">
-            <p><strong>Dirigido a:</strong></p>
-            <div class="check-group">
-              <label v-for="rol in rolesDisponibles" :key="rol">
-                <input type="checkbox" :value="rol" v-model="announceForm.destinatarios"> {{ rol }}
-              </label>
-            </div>
-          </div>
-
-          <button class="btn-publish" @click="submit" :disabled="saving || !announceForm.titulo">
-            {{ saving ? 'Publicando...' : 'Publicar Anuncio' }}
-          </button>
-        </div>
-
-        <div v-if="anuncios.length === 0" class="no-posts panel">
-          No hay anuncios para tu rol ({{ user.tipo_rol }}) en este momento.
-        </div>
-
-        <div v-for="ann in anuncios" :key="ann.fecha_creacion" :class="['post-card', 'panel', ann.prioridad]">
-          <div class="post-header">
-            <div class="user-meta">
-              <span class="priority-badge">{{ ann.prioridad.toUpperCase() }}</span>
-              <h3>{{ ann.titulo }}</h3>
-              <small>De: {{ ann.creador_email }} | {{ formatDate(ann.fecha_creacion) }}</small>
-            </div>
-          </div>
-          
-          <div class="post-body">
-            <p>{{ ann.contenido }}</p>
-          </div>
-
-          <!-- MÉTRICAS AGREGADAS -->
-          <div class="metrics-bar">
+        <!-- VISTA DE ANUNCIOS (Original) -->
+        <div v-if="vistaActual === 'anuncios'">
+          <div v-if="puedeCrear" class="create-post panel announce-form">
+            <h3><i class="fas fa-plus"></i> Publicar nuevo anuncio</h3>
             
-            <div class="metric-item">
-              <i class="fas fa-users"></i>
-              <span>{{ ann.destinatarios_lista?.length || 0 }} grupos</span>
+            <input 
+              v-model="announceForm.titulo" 
+              type="text" 
+              placeholder="Título del anuncio" 
+              class="input-title"
+            />
+
+            <textarea 
+              v-model="announceForm.contenido" 
+              placeholder="¿Qué quieres informar a la comunidad?"
+              rows="3"
+            ></textarea>
+            
+            <div class="post-actions-row">
+              <div class="selectors">
+                <select v-model="announceForm.prioridad">
+                  <option value="baja">Baja</option>
+                  <option value="media">Media</option>
+                  <option value="alta">Alta</option>
+                  <option value="urgente">Urgente</option>
+                </select>
+
+                <select v-model="announceForm.tipo_anuncio">
+                  <option value="informativo">Informativo</option>
+                  <option value="laboral">Laboral</option>
+                  <option value="cultural">Cultural</option>
+                  <option value="academico">Académico</option>
+                </select>
+                
+                <input type="date" v-model="announceForm.fecha_expiracion" title="Fecha de vencimiento" />
+              </div>
             </div>
-            <div class="metric-item" v-if="ann.destinatarios_lista">
-              <i class="fas fa-bullseye"></i>
-              <span>{{ ann.destinatarios_lista.join(', ') }}</span>
+
+            <div class="destinatarios-section">
+              <p><strong>Dirigido a:</strong></p>
+              <div class="check-group">
+                <label v-for="rol in rolesDisponibles" :key="rol">
+                  <input type="checkbox" :value="rol" v-model="announceForm.destinatarios"> {{ rol }}
+                </label>
+              </div>
             </div>
+
+            <button class="btn-publish" @click="submit" :disabled="saving || !announceForm.titulo">
+              {{ saving ? 'Publicando...' : 'Publicar Anuncio' }}
+            </button>
           </div>
 
-          <div class="post-footer">
-            <span><i class="far fa-clock"></i> Expira: {{ ann.fecha_expiracion ? formatDate(ann.fecha_expiracion) : 'Permanente' }}</span>
-            <span class="type-label">{{ ann.tipo_anuncio }}</span>
+          <div v-if="anuncios.length === 0" class="no-posts panel">
+            No hay anuncios para tu rol ({{ user.tipo_rol }}) en este momento.
+          </div>
+
+          <div v-for="ann in anuncios" :key="ann.fecha_creacion" :class="['post-card', 'panel', ann.prioridad]">
+            <div class="post-header">
+              <div class="user-meta">
+                <span class="priority-badge">{{ ann.prioridad.toUpperCase() }}</span>
+                <h3>{{ ann.titulo }}</h3>
+                <small>De: {{ ann.creador_email }} | {{ formatDate(ann.fecha_creacion) }}</small>
+              </div>
+            </div>
+            
+            <div class="post-body">
+              <p>{{ ann.contenido }}</p>
+            </div>
+
+            <div class="metrics-bar">
+              <div class="metric-item">
+                <i class="fas fa-users"></i>
+                <span>{{ ann.destinatarios_lista?.length || 0 }} grupos</span>
+              </div>
+              <div class="metric-item" v-if="ann.destinatarios_lista">
+                <i class="fas fa-bullseye"></i>
+                <span>{{ ann.destinatarios_lista.join(', ') }}</span>
+              </div>
+            </div>
+
+            <div class="post-footer">
+              <span><i class="far fa-clock"></i> Expira: {{ ann.fecha_expiracion ? formatDate(ann.fecha_expiracion) : 'Permanente' }}</span>
+              <span class="type-label">{{ ann.tipo_anuncio }}</span>
+            </div>
           </div>
         </div>
+
+        <!-- VISTA DE CALENDARIO (Nueva) -->
+        <div v-else-if="vistaActual === 'calendario'" class="calendar-container panel">
+          <h3><i class="fas fa-calendar-alt"></i> Calendario de Anuncios</h3>
+          <FullCalendar :options="calendarOptions" />
+        </div>
+
       </main>
     </div>
   </div>
@@ -116,11 +142,19 @@
 <script>
 import axios from 'axios';
 import headerBar from './header.vue';
+import FullCalendar from '@fullcalendar/vue3';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import esLocale from '@fullcalendar/core/locales/es';
 
 export default {
-  components: { headerBar },
+  components: { 
+    headerBar,
+    FullCalendar 
+  },
   data() {
     return {
+      vistaActual: 'anuncios', // 'anuncios' o 'calendario'
       user: {
         email: '',
         nombre_usuario: '',
@@ -137,13 +171,39 @@ export default {
         tipo_anuncio: 'informativo',
         fecha_expiracion: '',
         destinatarios: []
+      },
+      calendarOptions: {
+        plugins: [dayGridPlugin, interactionPlugin],
+        initialView: 'dayGridMonth',
+        locale: esLocale,
+        headerToolbar: {
+          left: 'prev,next today',
+          center: 'title',
+          right: 'dayGridMonth,dayGridWeek'
+        },
+        events: [],
+        eventClick: this.handleEventClick,
+        height: 'auto',
+        buttonText: {
+          today: 'Hoy',
+          month: 'Mes',
+          week: 'Semana'
+        }
       }
     };
   },
   computed: {
     puedeCrear() {
-      // Solo organizaciones y dependencias pueden crear anuncios
       return this.user.tipo_rol === 'dependencia' || this.user.tipo_rol === 'organizacion';
+    }
+  },
+  watch: {
+    // Actualizar eventos del calendario cuando cambian los anuncios
+    anuncios: {
+      handler() {
+        this.actualizarEventosCalendario();
+      },
+      deep: true
     }
   },
   async mounted() {
@@ -161,12 +221,8 @@ export default {
           
           console.log("📦 Datos del usuario completos:", userData);
           
-          // CLAVE: En tu BD, tipo_usuario indica si es 'persona', 'dependencia' u 'organizacion'
-          // Y tipo_rol solo aplica a personas (Estudiante, Profesor, etc.)
-          
           let tipoDetectado = '';
           
-          // 1. Verificar tipo_usuario directamente (viene del login)
           if (userData.tipo_usuario === 'organizacion') {
             tipoDetectado = 'organizacion';
             console.log("✅ Detectado por tipo_usuario: ORGANIZACIÓN");
@@ -176,11 +232,9 @@ export default {
             console.log("✅ Detectado por tipo_usuario: DEPENDENCIA");
           }
           else if (userData.tipo_usuario === 'persona') {
-            // Para personas, usar tipo_miembro o roles
             tipoDetectado = userData.tipo_miembro || 'Estudiante';
             console.log("✅ Detectado por tipo_usuario: PERSONA -", tipoDetectado);
           }
-          // 2. Fallback: si no viene tipo_usuario, detectar por campos
           else {
             if (userData.rif) {
               tipoDetectado = 'organizacion';
@@ -202,13 +256,13 @@ export default {
             tipo_rol: tipoDetectado
           };
           
-          console.log(" Usuario final configurado:", this.user);
+          console.log("✅ Usuario final configurado:", this.user);
         } else {
-          console.warn(' No hay usuario en localStorage');
+          console.warn('⚠ No hay usuario en localStorage');
           this.$router.push('/principalview');
         }
       } catch (err) {
-        console.error(" Error cargando usuario:", err);
+        console.error("❌ Error cargando usuario:", err);
       } finally {
         this.loading = false;
       }
@@ -216,19 +270,14 @@ export default {
 
     async getAnuncios() {
       try {
-        // Para organizaciones/dependencias, mostrar todos los anuncios que crearon
-        // Para personas, filtrar por su tipo_rol
         let rolParaFiltro = this.user.tipo_rol;
         
-        // Si es organizacion o dependencia, no filtrar por destinatarios (mostrar todo)
         if (this.user.tipo_rol === 'organizacion' || this.user.tipo_rol === 'dependencia') {
-          // Opción 1: Mostrar solo los que ellos crearon
           const res = await axios.get('http://localhost:3000/api/announcements', {
             params: { creador_email: this.user.email }
           });
           this.anuncios = res.data;
         } else {
-          // Para personas: filtrar por rol (Estudiante, Profesor, etc.)
           const res = await axios.get('http://localhost:3000/api/announcements', {
             params: { mi_rol: rolParaFiltro }
           });
@@ -252,11 +301,10 @@ export default {
         return;
       }
       
-      // VALIDAR FECHA DE EXPIRACIÓN
       if (this.announceForm.fecha_expiracion) {
         const fechaExp = new Date(this.announceForm.fecha_expiracion);
         const hoy = new Date();
-        hoy.setHours(0, 0, 0, 0); // Resetear hora para comparar solo fechas
+        hoy.setHours(0, 0, 0, 0);
         
         if (fechaExp < hoy) {
           alert("La fecha de expiración no puede ser anterior a hoy");
@@ -266,10 +314,8 @@ export default {
       
       this.saving = true;
       try {
-        // Preparar fecha de publicación (ahora)
         const ahora = new Date().toISOString().slice(0, 19).replace('T', ' ');
         
-        // Preparar fecha de expiración (si existe, convertirla a timestamp)
         let fecha_exp = null;
         if (this.announceForm.fecha_expiracion) {
           fecha_exp = new Date(this.announceForm.fecha_expiracion).toISOString().slice(0, 19).replace('T', ' ');
@@ -281,7 +327,7 @@ export default {
           tipo_anuncio: this.announceForm.tipo_anuncio,
           prioridad: this.announceForm.prioridad,
           creador_email: this.user.email,
-          creador_tipo: this.user.tipo_rol, // 'organizacion' o 'dependencia'
+          creador_tipo: this.user.tipo_rol,
           fecha_publicacion: ahora,
           fecha_expiracion: fecha_exp,
           destinatarios: this.announceForm.destinatarios
@@ -292,7 +338,6 @@ export default {
         const res = await axios.post('http://localhost:3000/api/announcements', data);
         
         if (res.data.success) {
-          // Limpiar formulario
           this.announceForm = {
             titulo: '',
             contenido: '',
@@ -316,11 +361,57 @@ export default {
       }
     },
 
-    formatDate(d) {
-      return new Date(d).toLocaleDateString('es-ES', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
+    // NUEVOS MÉTODOS PARA EL CALENDARIO
+    actualizarEventosCalendario() {
+      this.calendarOptions.events = this.anuncios.map(ann => {
+        // Determinar color según prioridad
+        let color = '#3498db'; // azul por defecto (media)
+        if (ann.prioridad === 'urgente') color = '#e74c3c'; // rojo
+        else if (ann.prioridad === 'alta') color = '#f39c12'; // naranja
+        else if (ann.prioridad === 'baja') color = '#95a5a6'; // gris
+
+        return {
+          title: ann.titulo,
+          start: ann.fecha_publicacion,
+          end: ann.fecha_expiracion || undefined,
+          color: color,
+          extendedProps: {
+            contenido: ann.contenido,
+            prioridad: ann.prioridad,
+            tipo: ann.tipo_anuncio,
+            creador: ann.creador_email,
+            destinatarios: ann.destinatarios_lista
+          }
+        };
+      });
+    },
+
+    handleEventClick(info) {
+      const props = info.event.extendedProps;
+      const fechaInicio = new Date(info.event.start).toLocaleDateString('es-ES');
+      const fechaFin = info.event.end ? new Date(info.event.end).toLocaleDateString('es-ES') : 'Sin expiración';
+      
+      alert(`
+🔔 ${info.event.title}
+
+📝 ${props.contenido}
+
+⚠️ Prioridad: ${props.prioridad.toUpperCase()}
+🏷️ Tipo: ${props.tipo}
+👤 Creador: ${props.creador}
+📅 Desde: ${fechaInicio}
+📅 Hasta: ${fechaFin}
+🎯 Dirigido a: ${props.destinatarios ? props.destinatarios.join(', ') : 'Todos'}
+      `);
+    },
+
+    formatDate(dateStr) {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('es-ES', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
       });
     }
   }
@@ -329,9 +420,10 @@ export default {
 
 <style scoped>
 .feed-container { 
-  background: #f0f2f5; 
+  margin-top: 70px; 
   min-height: 100vh; 
-  padding-top: 20px; 
+  background: #f5f8fa; 
+  padding: 20px 0; 
 }
 
 .main-layout { 
@@ -398,6 +490,45 @@ export default {
   border: none;
   border-top: 1px solid #e1e8ed;
   margin: 15px 0;
+}
+
+/* ESTILOS DE LAS PESTAÑAS */
+.view-tabs {
+  display: flex;
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.view-tabs button {
+  flex: 1;
+  padding: 10px 15px;
+  border: 2px solid #e1e8ed;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #666;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.view-tabs button i {
+  font-size: 14px;
+}
+
+.view-tabs button:hover {
+  background: #f8f9fa;
+  border-color: #007bff;
+  color: #007bff;
+}
+
+.view-tabs button.active {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
 }
 
 .user-context-box { 
@@ -642,4 +773,57 @@ export default {
 .metric-item:hover i {
   color: #007bff;
 }
+
+/* ESTILOS DEL CALENDARIO */
+.calendar-container h3 {
+  margin: 0 0 20px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Estilos para personalizar FullCalendar */
+:deep(.fc) {
+  font-family: inherit;
+}
+
+:deep(.fc-button) {
+  background: #007bff !important;
+  border-color: #007bff !important;
+  text-transform: capitalize;
+}
+
+:deep(.fc-button:hover) {
+  background: #0056b3 !important;
+}
+
+:deep(.fc-button-active) {
+  background: #0056b3 !important;
+}
+
+:deep(.fc-event) {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+:deep(.fc-daygrid-event:hover) {
+  opacity: 0.8;
+}
+
+:deep(.fc-col-header-cell) {
+  background: #f8f9fa;
+  font-weight: 600;
+  padding: 10px 0;
+}
+
+:deep(.fc-day-today) {
+  background: #e3f2fd !important;
+}
+
+@import '@fullcalendar/core/main.css';
+@import '@fullcalendar/daygrid/main.css';
 </style>
