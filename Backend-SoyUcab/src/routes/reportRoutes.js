@@ -5,6 +5,7 @@ const reportController = require('../controllers/reportController');
 // GET /api/reports/top-companies
 router.get('/top-companies', reportController.getTopCompanies);
 
+
 // GET /api/reports/tutors
 router.get('/tutors', reportController.getTutorsReport);
 
@@ -14,8 +15,6 @@ router.get('/mentions', reportController.getMentionsReport);
 // GET /api/reports/graduates-location
 router.get('/graduates-location', reportController.getGraduatesLocation);
 
-<<<<<<< Updated upstream
-=======
 // GET /api/reports/getTopCarreras
 router.get('/top-carreras', reportController.getTopCarreras);
 
@@ -36,5 +35,4 @@ router.get('/eventos-participantes', reportController.getEventoParticipantes);
 // GET /api/reports/eventos-resumen - Resumen mejorado de eventos
 router.get('/eventos-resumen', reportController.getEventosResumen);
 
->>>>>>> Stashed changes
 module.exports = router;
