@@ -20,6 +20,19 @@ router.get('/top-carreras', reportController.getTopCarreras);
 
 router.get('/top-users', reportController.getTopUsers);
 
+// GET /api/reports/gestion-eventos
+router.get('/gestion-eventos', reportController.getGestionEventos);
 
+// GET /api/reports/top-promedios-facultad
+router.get('/top-promedios-facultad', reportController.getTopPromediosFacultad);
+
+// GET /api/reports/eventos-detalles - Detalles completos de eventos con participantes
+router.get('/eventos-detalles', reportController.getEventosDetalles);
+
+// GET /api/reports/eventos-participantes - Participantes de un evento específico
+router.get('/eventos-participantes', reportController.getEventoParticipantes);
+
+// GET /api/reports/eventos-resumen - Resumen mejorado de eventos
+router.get('/eventos-resumen', reportController.getEventosResumen);
 
 module.exports = router;

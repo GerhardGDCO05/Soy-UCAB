@@ -79,19 +79,9 @@ export default {
       });
     },
 
-    handleCardClick(cardType) {
-      //this.$emit('card-click', cardType);
-    },
-
-    refreshData() {
-      //this.$emit('refresh-data');
-    },
-
-    // Métodos de navegación respetando tus rutas
     goToEvent() {
-      // Usamos this.$router para consistencia con Vue
-      //this.$router.push('/events-report');
-    },
+      this.$router.push('/events-report');
+    }, 
 
     goToUsuarios() {
       this.$router.push('/reporte-top-usuarios');
@@ -110,7 +100,7 @@ export default {
     },
 
     goToPromedios() {
-      //this.$router.push('/averages-report');
+      this.$router.push('/reporte-top-promedios');
     },
 
     goToReconocimientos() {

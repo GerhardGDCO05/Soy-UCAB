@@ -75,7 +75,6 @@ const reportController = {
       res.status(500).json({ success: false, error: error.message });
     }
   },
-
   // Reporte: Top carreras con más estudiantes
   async getTopCarreras(req, res) {
       try {
@@ -151,6 +150,240 @@ const reportController = {
           console.error("Error en reporte top usuarios:", error);
           res.status(500).json({ success: false, error: 'Error al obtener top usuarios' });
       }
+  },
+
+   // GET /api/reports/gestion-eventos - Resumen de gestión de eventos
+   async getGestionEventos(req, res) {
+    try {
+      const { limit } = req.query;
+
+      // Llamar a la función PostgreSQL existente
+      const result = await db.query('SELECT * FROM soyucab.resumen_gestion_eventos()');
+
+      // Aplicar límite si se proporciona
+      let data = result.rows;
+      if (limit) {
+        data = data.slice(0, parseInt(limit));
+      }
+
+      res.json({
+        success: true,
+        count: data.length,
+        data: data
+      });
+    } catch (error) {
+      console.error('Error obteniendo reporte de gestión de eventos:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Error al obtener reporte de gestión de eventos'
+      });
+    }
+  },
+  
+  // GET /api/reports/top-promedios-facultad - Mejores promedios por facultad
+  async getTopPromediosFacultad(req, res) {
+    try {
+      const { limit = 10, minPromedio = 0, facultad } = req.query;
+      const parsedLimit = parseInt(limit);
+      const parsedMinPromedio = parseFloat(minPromedio);
+
+      let query;
+      let params;
+
+      // Construir query basada en si hay filtro de facultad o no ($1 y $2 son los parámetros para el promedio y la facultad)
+      if (facultad) {
+        // Con filtro de facultad
+        query = `
+          WITH ranked_estudiantes AS (
+            SELECT
+              e.facultad,
+              p.nombres || ' ' || p.apellidos AS nombre_estudiante,
+              e.promedio,
+              e.carrera_programa,
+              e.semestre,
+              ROW_NUMBER() OVER (
+                PARTITION BY e.facultad
+                ORDER BY e.promedio DESC
+              ) as ranking
+            FROM soyucab.estudiante e
+            JOIN soyucab.persona p ON e.email_estudiante = p.email_persona
+            JOIN soyucab.miembro m ON e.email_estudiante = m.email
+            WHERE e.promedio IS NOT NULL
+              AND m.privacidad_perfil = 'publico'
+              AND e.promedio >= $1
+              AND e.facultad = $2
+          )
+          SELECT
+            facultad,
+            nombre_estudiante,
+            promedio,
+            carrera_programa,
+            semestre,
+            ranking
+          FROM ranked_estudiantes
+          WHERE ranking <= $3
+          ORDER BY facultad ASC, ranking ASC
+        `;
+        params = [parsedMinPromedio, facultad, parsedLimit];
+      } else {
+        // Sin filtro de facultad
+        query = `
+          WITH ranked_estudiantes AS (
+            SELECT
+              e.facultad,
+              p.nombres || ' ' || p.apellidos AS nombre_estudiante,
+              e.promedio,
+              e.carrera_programa,
+              e.semestre,
+              ROW_NUMBER() OVER (
+                PARTITION BY e.facultad
+                ORDER BY e.promedio DESC
+              ) as ranking
+            FROM soyucab.estudiante e
+            JOIN soyucab.persona p ON e.email_estudiante = p.email_persona
+            JOIN soyucab.miembro m ON e.email_estudiante = m.email
+            WHERE e.promedio IS NOT NULL
+              AND m.privacidad_perfil = 'publico'
+              AND e.promedio >= $1
+          )
+          SELECT
+            facultad,
+            nombre_estudiante,
+            promedio,
+            carrera_programa,
+            semestre,
+            ranking
+          FROM ranked_estudiantes
+          WHERE ranking <= $2
+          ORDER BY facultad ASC, ranking ASC
+        `;
+        params = [parsedMinPromedio, parsedLimit];
+      }
+
+      const result = await db.query(query, params);
+
+      // Agrupar resultados por facultad
+      const groupedData = {};
+      result.rows.forEach(row => {
+        const fac = row.facultad;
+        if (!groupedData[fac]) {
+          groupedData[fac] = {
+            facultad: fac,
+            estudiantes: [],
+            promedio_maximo: 0,
+            total_estudiantes: 0
+          };
+        }
+
+        const promedio = parseFloat(row.promedio);
+        groupedData[fac].estudiantes.push({
+          nombre: row.nombre_estudiante,
+          promedio: promedio,
+          carrera: row.carrera_programa,
+          semestre: row.semestre,
+          ranking: row.ranking
+        });
+
+        groupedData[fac].promedio_maximo = Math.max(
+          groupedData[fac].promedio_maximo,
+          promedio
+        );
+        groupedData[fac].total_estudiantes++;
+      });
+
+      const data = Object.values(groupedData);
+
+      res.json({
+        success: true,
+        count: data.length,
+        total_estudiantes: result.rows.length,
+        data: data
+      });
+    } catch (error) {
+      console.error('Error obteniendo top promedios por facultad:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Error al obtener reporte de promedios por facultad'
+      });
+    }
+  },
+
+  // GET /api/reports/eventos-detalles - Detalles completos de eventos (NUEVO)
+  async getEventosDetalles(req, res) {
+    try {
+      const result = await db.query('SELECT * FROM soyucab.obtener_detalles_eventos()');
+
+      res.json({
+        success: true,
+        count: result.rows.length,
+        data: result.rows
+      });
+    } catch (error) {
+      console.error('Error obteniendo detalles de eventos:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Error al obtener detalles de eventos'
+      });
+    }
+  },
+
+  // GET /api/reports/eventos-participantes - Participantes de un evento específico (NUEVO)
+  async getEventoParticipantes(req, res) {
+    try {
+      const { ubicacion, fecha_inicio } = req.query;
+
+      if (!ubicacion || !fecha_inicio) {
+        return res.status(400).json({
+          success: false,
+          error: 'Se requieren parámetros: ubicacion y fecha_inicio'
+        });
+      }
+
+      const result = await db.query(
+        'SELECT * FROM soyucab.obtener_participantes_evento($1, $2)',
+        [ubicacion, fecha_inicio]
+      );
+
+      res.json({
+        success: true,
+        count: result.rows.length,
+        data: result.rows
+      });
+    } catch (error) {
+      console.error('Error obteniendo participantes del evento:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Error al obtener participantes del evento'
+      });
+    }
+  },
+
+  // GET /api/reports/eventos-resumen - Resumen mejorado de eventos (ACTUALIZADO)
+  async getEventosResumen(req, res) {
+    try {
+      const { limit } = req.query;
+
+      // Llamar a la función PostgreSQL mejorada
+      const result = await db.query('SELECT * FROM soyucab.resumen_gestion_eventos()');
+
+      // Aplicar límite si se proporciona
+      let data = result.rows;
+      if (limit) {
+        data = data.slice(0, parseInt(limit));
+      }
+
+      res.json({
+        success: true,
+        count: data.length,
+        data: data
+      });
+    } catch (error) {
+      console.error('Error obteniendo resumen de eventos:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Error al obtener resumen de eventos'
+      });
+    }
   }
 
 };
