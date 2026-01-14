@@ -270,7 +270,36 @@
               </span>
             </div>
           </div>
+          
+          <!-- CAMPOS AGREGADOS: País y Estado para Egresados -->
+          <div class="form-row">
+            <div class="form-group">
+              <label>País *</label>
+              <select v-model="egresadoData.pais" @change="updateEstadosEgresado">
+                <option value="">Selecciona un país</option>
+                <option v-for="(country, countryName) in countryMapping" :key="country.code" :value="country.code">
+                  {{ countryName }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Estado / Provincia *</label>
+              <select v-model="egresadoData.estado" :disabled="!egresadoData.pais">
+                <option value="">Selecciona primero un país</option>
+                <option v-for="estado in estadosEgresadoDisponibles" :key="estado" :value="estado">
+                  {{ estado }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Fecha de Acto de Grado</label>
+            <input type="date" v-model="egresadoData.fecha_grado" />
+          </div>
         </div>
+        
         <div v-if="personaTipo === 'profesor'">
           <div class="form-row">
             <div class="form-group">
@@ -406,7 +435,6 @@
 </template>
 
 <script>
-
 import api from '../services/usuarioServices';
 
 export default {
@@ -468,8 +496,8 @@ export default {
         facultad: '',
         titulos: [],
         fecha_grado: '',
-        pais: '',
-        estado: '',
+        pais: '',      // CAMPO AGREGADO
+        estado: '',    // CAMPO AGREGADO
         menciones: [],
         empresas: []
       },
@@ -522,15 +550,191 @@ export default {
       currentColaboracion: '',
       
       // Estados de países y estados
-      estadosDisponibles: [],
+      estadosEgresadoDisponibles: [],
       descripcionError: '',
       
+      // Mapeo de países (el que proporcionaste)
+      countryMapping: {
+        // América
+        'Venezuela': { code: 'VE', coordinates: [8.0000, -66.0000] },
+        'Estados Unidos': { code: 'US', coordinates: [37.0902, -95.7129] },
+        'Colombia': { code: 'CO', coordinates: [4.0000, -72.0000] },
+        'México': { code: 'MX', coordinates: [23.6345, -102.5528] },
+        'Argentina': { code: 'AR', coordinates: [-38.4161, -63.6167] },
+        'Chile': { code: 'CL', coordinates: [-35.6751, -71.5429] },
+        'Perú': { code: 'PE', coordinates: [-9.1900, -75.0152] },
+        'Brasil': { code: 'BR', coordinates: [-14.2350, -51.9253] },
+        'Ecuador': { code: 'EC', coordinates: [-1.8312, -78.1834] },
+        'Bolivia': { code: 'BO', coordinates: [-16.2902, -63.5887] },
+        'Paraguay': { code: 'PY', coordinates: [-23.4425, -58.4438] },
+        'Uruguay': { code: 'UY', coordinates: [-32.5228, -55.7658] },
+        'Panamá': { code: 'PA', coordinates: [8.5375, -80.7821] },
+        'Costa Rica': { code: 'CR', coordinates: [9.7489, -83.7534] },
+        'Nicaragua': { code: 'NI', coordinates: [12.8654, -85.2072] },
+        'Honduras': { code: 'HN', coordinates: [15.2000, -86.2419] },
+        'El Salvador': { code: 'SV', coordinates: [13.7942, -88.8965] },
+        'Guatemala': { code: 'GT', coordinates: [15.7835, -90.2308] },
+        'Cuba': { code: 'CU', coordinates: [21.5218, -77.7812] },
+        'República Dominicana': { code: 'DO', coordinates: [18.7357, -70.1627] },
+        'Puerto Rico': { code: 'PR', coordinates: [18.2208, -66.5901] },
+        'Canadá': { code: 'CA', coordinates: [56.1304, -106.3468] },
+        
+        // Europa
+        'España': { code: 'ES', coordinates: [40.4637, -3.7492] },
+        'Francia': { code: 'FR', coordinates: [46.6034, 1.8883] },
+        'Italia': { code: 'IT', coordinates: [41.8719, 12.5674] },
+        'Alemania': { code: 'DE', coordinates: [51.1657, 10.4515] },
+        'Reino Unido': { code: 'GB', coordinates: [55.3781, -3.4360] },
+        'Portugal': { code: 'PT', coordinates: [39.3999, -8.2245] },
+        'Países Bajos': { code: 'NL', coordinates: [52.1326, 5.2913] },
+        'Bélgica': { code: 'BE', coordinates: [50.5039, 4.4699] },
+        'Suiza': { code: 'CH', coordinates: [46.8182, 8.2275] },
+        'Austria': { code: 'AT', coordinates: [47.5162, 14.5501] },
+        'Suecia': { code: 'SE', coordinates: [60.1282, 18.6435] },
+        'Noruega': { code: 'NO', coordinates: [60.4720, 8.4689] },
+        'Finlandia': { code: 'FI', coordinates: [61.9241, 25.7482] },
+        'Dinamarca': { code: 'DK', coordinates: [56.2639, 9.5018] },
+        'Polonia': { code: 'PL', coordinates: [51.9194, 19.1451] },
+        'Rusia': { code: 'RU', coordinates: [61.5240, 105.3188] },
+        'Ucrania': { code: 'UA', coordinates: [48.3794, 31.1656] },
+        'Grecia': { code: 'GR', coordinates: [39.0742, 21.8243] },
+        'Turquía': { code: 'TR', coordinates: [38.9637, 35.2433] },
+        
+        // Asia
+        'China': { code: 'CN', coordinates: [35.8617, 104.1954] },
+        'Japón': { code: 'JP', coordinates: [36.2048, 138.2529] },
+        'India': { code: 'IN', coordinates: [20.5937, 78.9629] },
+        'Corea del Sur': { code: 'KR', coordinates: [35.9078, 127.7669] },
+        'Singapur': { code: 'SG', coordinates: [1.3521, 103.8198] },
+        'Tailandia': { code: 'TH', coordinates: [15.8700, 100.9925] },
+        'Vietnam': { code: 'VN', coordinates: [14.0583, 108.2772] },
+        'Filipinas': { code: 'PH', coordinates: [12.8797, 121.7740] },
+        'Malasia': { code: 'MY', coordinates: [4.2105, 101.9758] },
+        'Indonesia': { code: 'ID', coordinates: [-0.7893, 113.9213] },
+        'Israel': { code: 'IL', coordinates: [31.0461, 34.8516] },
+        'Emiratos Árabes Unidos': { code: 'AE', coordinates: [23.4241, 53.8478] },
+        'Arabia Saudita': { code: 'SA', coordinates: [23.8859, 45.0792] },
+        'Qatar': { code: 'QA', coordinates: [25.3548, 51.1839] },
+        
+        // África
+        'Sudáfrica': { code: 'ZA', coordinates: [-30.5595, 22.9375] },
+        'Egipto': { code: 'EG', coordinates: [26.8206, 30.8025] },
+        'Nigeria': { code: 'NG', coordinates: [9.0820, 8.6753] },
+        'Kenia': { code: 'KE', coordinates: [-1.2864, 36.8172] },
+        'Marruecos': { code: 'MA', coordinates: [31.7917, -7.0926] },
+        'Argelia': { code: 'DZ', coordinates: [28.0339, 1.6596] },
+        'Túnez': { code: 'TN', coordinates: [33.8869, 9.5375] },
+        'Ghana': { code: 'GH', coordinates: [7.9465, -1.0232] },
+        'Costa de Marfil': { code: 'CI', coordinates: [7.5400, -5.5471] },
+        'Senegal': { code: 'SN', coordinates: [14.4974, -14.4524] },
+        'Etiopía': { code: 'ET', coordinates: [9.1450, 40.4897] },
+        
+        // Oceanía
+        'Australia': { code: 'AU', coordinates: [-25.2744, 133.7751] },
+        'Nueva Zelanda': { code: 'NZ', coordinates: [-40.9006, 174.8860] },
+        
+        // Centroamérica y Caribe
+        'Jamaica': { code: 'JM', coordinates: [18.1096, -77.2975] },
+        'Trinidad y Tobago': { code: 'TT', coordinates: [10.6918, -61.2225] },
+        'Bahamas': { code: 'BS', coordinates: [25.0343, -77.3963] },
+        'Barbados': { code: 'BB', coordinates: [13.1939, -59.5432] },
+        
+        // Países adicionales importantes
+        'Irlanda': { code: 'IE', coordinates: [53.1424, -7.6921] },
+        'Islandia': { code: 'IS', coordinates: [64.9631, -19.0208] },
+        'Luxemburgo': { code: 'LU', coordinates: [49.8153, 6.1296] },
+        'Mónaco': { code: 'MC', coordinates: [43.7384, 7.4246] },
+        'Andorra': { code: 'AD', coordinates: [42.5462, 1.6016] },
+        'Malta': { code: 'MT', coordinates: [35.9375, 14.3754] },
+        'Chipre': { code: 'CY', coordinates: [35.1264, 33.4299] },
+        'Liechtenstein': { code: 'LI', coordinates: [47.1660, 9.5554] },
+        'San Marino': { code: 'SM', coordinates: [43.9424, 12.4578] },
+        'Vaticano': { code: 'VA', coordinates: [41.9029, 12.4534] }
+      },
+      
       estadosPorPais: {
+        // --- América ---
         'VE': ['Distrito Capital', 'Zulia', 'Miranda', 'Carabobo', 'Aragua', 'Lara', 'Bolívar', 'Táchira', 'Mérida', 'Anzoátegui'],
-        'CO': ['Bogotá D.C.', 'Antioquia', 'Valle del Cauca', 'Santander', 'Cundinamarca', 'Atlántico', 'Bolívar'],
-        'ES': ['Madrid', 'Barcelona', 'Valencia', 'Sevilla', 'Andalucía', 'Cataluña', 'País Vasco'],
-        'US': ['Florida', 'California', 'Texas', 'Nueva York', 'Illinois', 'Washington', 'Massachusetts'],
-        'MX': ['Ciudad de México', 'Jalisco', 'Nuevo León', 'Puebla', 'Veracruz', 'Estado de México', 'Guanajuato']
+        'US': ['California', 'Texas', 'Florida', 'Nueva York', 'Illinois', 'Pennsylvania', 'Ohio', 'Georgia', 'Washington', 'Massachusetts'],
+        'CO': ['Bogotá D.C.', 'Antioquia', 'Valle del Cauca', 'Santander', 'Atlántico', 'Cundinamarca', 'Bolívar', 'Risaralda', 'Tolima', 'Nariño'],
+        'MX': ['Ciudad de México', 'Jalisco', 'Nuevo León', 'Puebla', 'Veracruz', 'Guanajuato', 'Baja California', 'Chihuahua', 'Yucatán', 'Querétaro'],
+        'AR': ['Buenos Aires', 'Córdoba', 'Santa Fe', 'Mendoza', 'Tucumán', 'Salta', 'Entre Ríos', 'Misiones', 'Chaco', 'Neuquén'],
+        'CL': ['Metropolitana de Santiago', 'Valparaíso', 'Biobío', 'Antofagasta', 'Araucanía', 'Coquimbo', 'Los Lagos', 'Maule', "O'Higgins"],
+        'PE': ['Lima', 'Arequipa', 'La Libertad', 'Piura', 'Cusco', 'Ancash', 'Junín', 'Lambayeque', 'Puno', 'Callao'],
+        'BR': ['São Paulo', 'Rio de Janeiro', 'Minas Gerais', 'Bahia', 'Paraná', 'Rio Grande do Sul', 'Pernambuco', 'Ceará', 'Amazonas', 'Santa Catarina'],
+        'EC': ['Pichincha', 'Guayas', 'Azuay', 'Manabí', 'Loja', 'Tungurahua', 'El Oro', 'Chimborazo', 'Imbabura', 'Santo Domingo'],
+        'BO': ['La Paz', 'Santa Cruz', 'Cochabamba', 'Chuquisaca', 'Oruro', 'Potosí', 'Tarija', 'Beni', 'Pando'],
+        'PY': ['Asunción', 'Central', 'Alto Paraná', 'Itapúa', 'Caaguazú', 'San Pedro', 'Cordillera', 'Paraguarí'],
+        'UY': ['Montevideo', 'Canelones', 'Maldonado', 'Salto', 'Colonia', 'Paysandú', 'San José', 'Rivera'],
+        'PA': ['Panamá', 'Chiriquí', 'Colón', 'Veraguas', 'Coclé', 'Herrera', 'Los Santos', 'Bocas del Toro'],
+        'CR': ['San José', 'Alajuela', 'Cartago', 'Heredia', 'Guanacaste', 'Puntarenas', 'Limón'],
+        'NI': ['Managua', 'León', 'Chinandega', 'Masaya', 'Matagalpa', 'Granada', 'Estelí', 'Carazo'],
+        'HN': ['Francisco Morazán', 'Cortés', 'Atlántida', 'Choluteca', 'Comayagua', 'Yoro', 'Olancho', 'Copán'],
+        'SV': ['San Salvador', 'La Libertad', 'Santa Ana', 'San Miguel', 'Sonsonate', 'Usulután', 'La Paz', 'Ahuachapán'],
+        'GT': ['Guatemala', 'Quetzaltenango', 'Escuintla', 'Huehuetenango', 'Alta Verapaz', 'San Marcos', 'Sacatepéquez', 'Izabal'],
+        'CU': ['La Habana', 'Santiago de Cuba', 'Holguín', 'Camagüey', 'Villa Clara', 'Matanzas', 'Pinar del Río', 'Guantánamo'],
+        'DO': ['Distrito Nacional', 'Santo Domingo', 'Santiago', 'La Altagracia', 'San Cristóbal', 'La Romana', 'Puerto Plata', 'Duarte'],
+        'PR': ['San Juan', 'Bayamón', 'Carolina', 'Ponce', 'Caguas', 'Guaynabo', 'Mayagüez', 'Arecibo'],
+        'CA': ['Ontario', 'Quebec', 'British Columbia', 'Alberta', 'Manitoba', 'Saskatchewan', 'Nova Scotia', 'New Brunswick'],
+
+        // --- Europa ---
+        'ES': ['Madrid', 'Cataluña', 'Andalucía', 'Valencia', 'Galicia', 'País Vasco', 'Castilla y León', 'Canarias', 'Aragón', 'Baleares'],
+        'FR': ['Île-de-France', 'Auvergne-Rhône-Alpes', 'Provence-Alpes-Côte d’Azur', 'Nouvelle-Aquitaine', 'Occitanie', 'Grand Est', 'Bretagne'],
+        'IT': ['Lombardía', 'Lacio', 'Campania', 'Véneto', 'Sicilia', 'Emilia-Romaña', 'Piamonte', 'Toscana', 'Apulia'],
+        'DE': ['Baviera', 'Berlín', 'Baden-Wurtemberg', 'Renania del Norte-Westfalia', 'Hamburgo', 'Hesse', 'Sajonia', 'Baja Sajonia'],
+        'GB': ['Inglaterra', 'Escocia', 'Gales', 'Irlanda del Norte', 'Londres', 'Mánchester', 'Birmingham'],
+        'PT': ['Lisboa', 'Oporto', 'Setúbal', 'Braga', 'Aveiro', 'Faro', 'Madeira', 'Azores'],
+        'NL': ['Holanda Septentrional', 'Holanda Meridional', 'Utrecht', 'Brabante Septentrional', 'Güeldres', 'Overijssel'],
+        'BE': ['Flandes', 'Valonia', 'Bruselas-Capital', 'Amberes', 'Lieja', 'Gante'],
+        'CH': ['Zúrich', 'Berna', 'Ginebra', 'Vaud', 'Tesino', 'Basilea-Ciudad', 'Lucerna'],
+        'AT': ['Viena', 'Baja Austria', 'Alta Austria', 'Estiria', 'Tirol', 'Salzburgo'],
+        'SE': ['Estocolmo', 'Vastra Gotaland', 'Escania', 'Uppsala', 'Ostrogothia'],
+        'NO': ['Oslo', 'Viken', 'Vestland', 'Rogaland', 'Trøndelag'],
+        'FI': ['Uusimaa', 'Pirkanmaa', 'Finlandia Propia', 'Ostrobotnia Septentrional'],
+        'DK': ['Hovedstaden', 'Midtjylland', 'Syddanmark', 'Sjælland', 'Nordjylland'],
+        'PL': ['Mazovia', 'Silesia', 'Gran Polonia', 'Pequeña Polonia', 'Baja Silesia', 'Pomerania'],
+        'RU': ['Moscú', 'San Petersburgo', 'Sverdlovsk', 'Tartaristán', 'Krasnodar', 'Novosibirsk'],
+        'UA': ['Kiev', 'Járkov', 'Dnipropetrovsk', 'Odesa', 'Leópolis', 'Donetsk'],
+        'GR': ['Ática', 'Macedonia Central', 'Tesalia', 'Creta', 'Peloponeso'],
+        'TR': ['Estambul', 'Ankara', 'Esmirna', 'Bursa', 'Antalya', 'Adana'],
+        'IE': ['Leinster', 'Munster', 'Connacht', 'Ulster', 'Dublín', 'Cork', 'Galway'],
+
+        // --- Asia ---
+        'CN': ['Guangdong', 'Shandong', 'Henan', 'Sichuan', 'Jiangsu', 'Hebei', 'Pekín', 'Shanghái', 'Zhejiang'],
+        'JP': ['Tokio', 'Osaka', 'Kanagawa', 'Aichi', 'Hokkaido', 'Hyogo', 'Fukuoka', 'Kioto'],
+        'IN': ['Maharashtra', 'Uttar Pradesh', 'Bengala Occidental', 'Tamil Nadu', 'Karnataka', 'Gujarat', 'Delhi'],
+        'KR': ['Seúl', 'Gyeonggi', 'Busan', 'Incheon', 'Daegu', 'Gyeongsang del Sur'],
+        'TH': ['Bangkok', 'Chon Buri', 'Chiang Mai', 'Phuket', 'Nakhon Ratchasima'],
+        'VN': ['Hanoi', 'Ho Chi Minh', 'Da Nang', 'Hai Phong', 'Can Tho'],
+        'PH': ['Gran Manila', 'Cebú', 'Davao', 'Iloílo', 'Pampanga'],
+        'MY': ['Selangor', 'Johor', 'Penang', 'Sarawak', 'Kuala Lumpur'],
+        'ID': ['Yakarta', 'Java Occidental', 'Java Central', 'Java Oriental', 'Bali', 'Banten'],
+        'IL': ['Tel Aviv', 'Jerusalén', 'Haifa', 'Distrito Central', 'Distrito Sur'],
+        'AE': ['Abu Dhabi', 'Dubai', 'Sharjah', 'Ajman', 'Ras Al Khaimah'],
+        'SA': ['Riad', 'Meca', 'Provincia Oriental', 'Medina', 'Asir'],
+        'QA': ['Doha', 'Al Rayyan', 'Al Khor', 'Al Wakrah'],
+
+        // --- África ---
+        'ZA': ['Gauteng', 'KwaZulu-Natal', 'Cabo Occidental', 'Cabo Oriental', 'Limpopo', 'Mpumalanga'],
+        'EG': ['El Cairo', 'Giza', 'Alejandría', 'Dakahlia', 'Sharqia', 'Beheira'],
+        'NG': ['Lagos', 'Kano', 'Oyo', 'Kaduna', 'Rivers', 'Anambra'],
+        'KE': ['Nairobi', 'Mombasa', 'Kiambu', 'Nakuru', 'Kisumu'],
+        'MA': ['Casablanca-Settat', 'Rabat-Salé-Kénitra', 'Marrakech-Safí', 'Fez-Mequinez', 'Tánger-Tetuán-Alhucemas'],
+        'DZ': ['Argel', 'Orán', 'Constantina', 'Annaba', 'Blida'],
+        'TN': ['Túnez', 'Sfax', 'Nabeul', 'Susa', 'Bizerta'],
+        'GH': ['Gran Acra', 'Ashanti', 'Región Occidental', 'Región Central'],
+
+        // --- Oceanía ---
+        'AU': ['Nueva Gales del Sur', 'Victoria', 'Queensland', 'Australia Occidental', 'Australia Meridional', 'Tasmania'],
+        'NZ': ['Auckland', 'Wellington', 'Canterbury', 'Waikato', 'Otago'],
+
+        // --- Microestados y otros (Ciudad-Estado) ---
+        'SG': ['Singapur'], // Singapur es una ciudad-estado
+        'LU': ['Luxemburgo', 'Diekirch', 'Grevenmacher'],
+        'MC': ['Montecarlo', 'La Condamine', 'Fontvieille'],
+        'VA': ['Ciudad del Vaticano'],
+        'AD': ['Andorra la Vella', 'Escaldes-Engordany', 'Encamp', 'Sant Julià de Lòria'],
+        'MT': ['La Valeta', 'Birgu', 'Sliema', 'Mdina']
       }
     };
   },
@@ -603,6 +807,15 @@ export default {
         if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
         this.personaData.edad = age;
       }
+    },
+    
+    // ========== MÉTODO PARA ACTUALIZAR ESTADOS DE EGRESADO ==========
+    updateEstadosEgresado() {
+      // Resetear estado cuando cambia el país
+      this.egresadoData.estado = '';
+      
+      // Obtener estados para el país seleccionado
+      this.estadosEgresadoDisponibles = this.estadosPorPais[this.egresadoData.pais] || [];
     },
     
     // ========== MÉTODOS DE LOGIN (CORREGIDO) ==========
@@ -696,7 +909,19 @@ export default {
               email_dominio_estudiante: this.generateInstitutionalEmail(this.email) 
             });
           } else if (this.personaTipo === 'egresado') {
-            Object.assign(finalData, { ...this.egresadoData, fecha_acto_grado: this.formatDateForAPI(this.egresadoData.fecha_grado) });
+            // Validar que país y estado estén presentes para egresados
+            if (!this.egresadoData.pais || !this.egresadoData.estado) {
+              alert('Por favor completa los campos de país y estado para egresados');
+              this.loading = false;
+              return;
+            }
+            
+            Object.assign(finalData, { 
+              ...this.egresadoData, 
+              pais: this.egresadoData.pais,      // Se guarda el código (ej: 'VE')
+              estado: this.egresadoData.estado,  // Se guarda el estado seleccionado
+              fecha_acto_grado: this.formatDateForAPI(this.egresadoData.fecha_grado) 
+            });
           } else if (this.personaTipo === 'profesor') {
             Object.assign(finalData, { ...this.profesorData, fecha_ingreso_profesor: this.formatDateForAPI(this.profesorData.fecha_ingreso) });
           }
@@ -748,11 +973,6 @@ export default {
     
     generateInstitutionalEmail(personalEmail) {
       return `${personalEmail.split('@')[0]}@ucab.edu.ve`;
-    },
-    
-    updateEstados() {
-      this.estadosDisponibles = this.estadosPorPais[this.egresadoData.pais] || [];
-      this.egresadoData.estado = '';
     },
 
     // Handlers de pasos (simplificados para brevedad, mantienen tu lógica)

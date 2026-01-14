@@ -15,11 +15,22 @@ export default {
         if (!userData.fecha_nacimiento) {
           return { success: false, error: 'La fecha de nacimiento es requerida' };
         }
+        
         formattedData = {
           ...userData,
-          fecha_nacimiento: this.formatDateDB(userData.fecha_nacimiento)
+          fecha_nacimiento: this.formatDateDB(userData.fecha_nacimiento),
+          
+          // Mapear campos específicos para el backend
+          estado_egresado: userData.estado || null, 
+          pais: userData.pais || null,              
+          fecha_acto_grado: userData.fecha_acto_grado ? this.formatDateDB(userData.fecha_acto_grado) : null,
+          fecha_ingreso_profesor: userData.fecha_ingreso_profesor ? this.formatDateDB(userData.fecha_ingreso_profesor) : null,
+          categoria_profesor: userData.categoria || null,
+          dedicacion_profesor: userData.dedicacion || null
         };
       }
+
+      console.log('Enviando datos al backend:', formattedData); // Para debug
 
       const response = await api.post(endpoint, formattedData);
 
