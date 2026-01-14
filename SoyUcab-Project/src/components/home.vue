@@ -30,8 +30,7 @@
             <span class="stat-label">Siguiendo</span>
           </div>
           <div class="stat-item">
-            <span class="stat-number">{{ userStats.total_publicaciones || 0 }}</span>
-            <span class="stat-label">Posts</span>
+            
           </div>
           
           <div class="stat-item" @click="openStatList('amistades')">
@@ -890,4 +889,5 @@ export default {
     },
   }
 }
+
 </script>
