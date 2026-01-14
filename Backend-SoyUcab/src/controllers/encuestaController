@@ -1,0 +1,383 @@
+const db = require('../config/database');
+
+const encuestaController = {
+    // 1. Crear encuesta (solo dependencias y organizaciones)
+    async createEncuesta(req, res) {
+        try {
+            const {
+                tipo_encuesta,
+                email_encuestador,
+                titulo,
+                descripcion,
+                tipo_encuestador,
+                fecha_fin,
+                instrucciones,
+                anonimato,
+                audiencia,
+                requisitos,
+                opciones // Array: [{numero: 1, texto: "Sí"}, {numero: 2, texto: "No"}]
+            } = req.body;
+
+            console.log("📊 Creando encuesta:", titulo);
+
+            await db.query('BEGIN');
+
+            try {
+                // 1. Crear encuesta
+                await db.query(
+                    `INSERT INTO soyucab.encuesta 
+                    (tipo_encuesta, email_encuestador, titulo, descripcion, tipo_encuestador, 
+                     fecha_fin, instrucciones, anonimato, estado_encuesta)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'borrador')`,
+                    [tipo_encuesta, email_encuestador, titulo, descripcion, tipo_encuestador, 
+                     fecha_fin, instrucciones || '', anonimato]
+                );
+
+                // 2. Insertar opciones de respuesta
+                if (opciones && opciones.length > 0) {
+                    for (const opcion of opciones) {
+                        await db.query(
+                            `INSERT INTO soyucab.opcion_texto (tipo_encuesta, titulo_encuesta, numero_opcion, texto_opcion)
+                             VALUES ($1, $2, $3, $4)`,
+                            [tipo_encuesta, titulo, opcion.numero, opcion.texto]
+                        );
+                    }
+                }
+
+                // 3. Insertar audiencia
+                if (audiencia && audiencia.length > 0) {
+                    for (const aud of audiencia) {
+                        await db.query(
+                            `INSERT INTO soyucab.audiencia (tipo_encuesta, titulo, valor)
+                             VALUES ($1, $2, $3)`,
+                            [tipo_encuesta, titulo, aud]
+                        );
+                    }
+                }
+
+                // 4. Insertar requisitos
+                if (requisitos && requisitos.length > 0) {
+                    for (const req of requisitos) {
+                        await db.query(
+                            `INSERT INTO soyucab.requisitos_participacion (tipo_encuesta, titulo, valor)
+                             VALUES ($1, $2, $3)`,
+                            [tipo_encuesta, titulo, req]
+                        );
+                    }
+                }
+
+                await db.query('COMMIT');
+                console.log("✅ Encuesta creada exitosamente");
+                res.status(201).json({ success: true, message: 'Encuesta creada exitosamente' });
+            } catch (error) {
+                await db.query('ROLLBACK');
+                throw error;
+            }
+        } catch (error) {
+            console.error('❌ Error creando encuesta:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    // 2. Publicar encuesta
+    async publicarEncuesta(req, res) {
+        try {
+            console.log("📢 PUBLICAR ENCUESTA - Inicio");
+            const { tipo_encuesta, titulo } = req.body;
+            console.log("📢 Datos recibidos:", { tipo_encuesta, titulo });
+            
+            await db.query(
+                `UPDATE soyucab.encuesta 
+                 SET estado_encuesta = 'publicada'
+                 WHERE tipo_encuesta = $1 AND titulo = $2 AND estado_encuesta = 'borrador'`,
+                [tipo_encuesta, titulo]
+            );
+
+            console.log("✅ Encuesta publicada:", titulo);
+            res.json({ success: true, message: 'Encuesta publicada' });
+        } catch (error) {
+            console.error("❌ Error publicando:", error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    // 3. Obtener todas las encuestas publicadas
+    async getEncuestas(req, res) {
+        try {
+            console.log("📋 GET ENCUESTAS - Inicio");
+            const result = await db.query(
+                `SELECT e.*, m.nombre_usuario,
+                 (SELECT COUNT(DISTINCT email_encuestado) FROM soyucab.opcion o 
+                  WHERE o.tipo_encuesta = e.tipo_encuesta AND o.titulo_encuesta = e.titulo 
+                  AND o.completada = TRUE) as total_votos
+                 FROM soyucab.encuesta e
+                 JOIN soyucab.miembro m ON e.email_encuestador = m.email
+                 WHERE e.estado_encuesta IN ('publicada', 'en_curso')
+                 AND e.fecha_fin > NOW()
+                 ORDER BY e.fecha_creacion DESC`
+            );
+
+            console.log(`✅ Encuestas encontradas: ${result.rows.length}`);
+            res.json({ success: true, data: result.rows });
+        } catch (error) {
+            console.error('❌ Error obteniendo encuestas:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    // 4. Obtener encuesta específica con opciones
+    async getEncuestaDetalle(req, res) {
+        try {
+            console.log("🔍 GET ENCUESTA DETALLE - Inicio");
+            const { tipo_encuesta, titulo } = req.params;
+            console.log("🔍 Parámetros recibidos:", { tipo_encuesta, titulo });
+
+            // Encuesta básica
+            const encuesta = await db.query(
+                `SELECT e.*, m.nombre_usuario
+                 FROM soyucab.encuesta e
+                 JOIN soyucab.miembro m ON e.email_encuestador = m.email
+                 WHERE e.tipo_encuesta = $1 AND e.titulo = $2`,
+                [tipo_encuesta, titulo]
+            );
+
+            if (encuesta.rows.length === 0) {
+                console.log("❌ Encuesta no encontrada");
+                return res.status(404).json({ success: false, error: 'Encuesta no encontrada' });
+            }
+
+            console.log("✅ Encuesta encontrada:", encuesta.rows[0].titulo);
+
+            // Opciones con conteo de votos
+            const opciones = await db.query(
+                `SELECT ot.numero_opcion, ot.texto_opcion,
+                 COUNT(o.email_encuestado) as votos
+                 FROM soyucab.opcion_texto ot
+                 LEFT JOIN soyucab.opcion o ON 
+                    ot.tipo_encuesta = o.tipo_encuesta AND 
+                    ot.titulo_encuesta = o.titulo_encuesta AND 
+                    ot.numero_opcion = o.numero_opcion AND
+                    o.completada = TRUE
+                 WHERE ot.tipo_encuesta = $1 AND ot.titulo_encuesta = $2
+                 GROUP BY ot.numero_opcion, ot.texto_opcion
+                 ORDER BY ot.numero_opcion`,
+                [tipo_encuesta, titulo]
+            );
+
+            // Audiencia
+            const audiencia = await db.query(
+                `SELECT valor FROM soyucab.audiencia 
+                 WHERE tipo_encuesta = $1 AND titulo = $2`,
+                [tipo_encuesta, titulo]
+            );
+
+            // Requisitos
+            const requisitos = await db.query(
+                `SELECT valor FROM soyucab.requisitos_participacion 
+                 WHERE tipo_encuesta = $1 AND titulo = $2`,
+                [tipo_encuesta, titulo]
+            );
+
+            console.log(`✅ Opciones: ${opciones.rows.length}, Audiencia: ${audiencia.rows.length}, Requisitos: ${requisitos.rows.length}`);
+
+            res.json({
+                success: true,
+                data: {
+                    ...encuesta.rows[0],
+                    opciones: opciones.rows,
+                    audiencia: audiencia.rows.map(a => a.valor),
+                    requisitos: requisitos.rows.map(r => r.valor),
+                    total_votos: opciones.rows.reduce((sum, opt) => sum + parseInt(opt.votos), 0)
+                }
+            });
+        } catch (error) {
+            console.error('❌ Error obteniendo detalle:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    // 5. Verificar si usuario ya votó
+    async checkVoto(req, res) {
+        try {
+            console.log("🗳️ CHECK VOTO - Inicio");
+            const { tipo_encuesta, titulo, email } = req.query;
+            console.log("🗳️ Parámetros:", { tipo_encuesta, titulo, email });
+
+            const result = await db.query(
+                `SELECT numero_opcion FROM soyucab.opcion 
+                 WHERE tipo_encuesta = $1 AND titulo_encuesta = $2 AND email_encuestado = $3 AND completada = TRUE`,
+                [tipo_encuesta, titulo, email]
+            );
+
+            console.log(`✅ Ya votó: ${result.rows.length > 0}`);
+            res.json({ 
+                success: true, 
+                yaVoto: result.rows.length > 0,
+                opcionVotada: result.rows.length > 0 ? result.rows[0].numero_opcion : null
+            });
+        } catch (error) {
+            console.error("❌ Error check voto:", error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    // 6. Votar en encuesta
+    async votarEncuesta(req, res) {
+        try {
+            console.log("🗳️ VOTAR ENCUESTA - Inicio");
+            const { tipo_encuesta, titulo_encuesta, numero_opcion, email_encuestado } = req.body;
+            console.log("🗳️ Voto recibido:", { tipo_encuesta, titulo_encuesta, numero_opcion, email_encuestado });
+
+            // Verificar si ya votó
+            const yaVoto = await db.query(
+                `SELECT * FROM soyucab.opcion 
+                 WHERE tipo_encuesta = $1 AND titulo_encuesta = $2 AND email_encuestado = $3 AND completada = TRUE`,
+                [tipo_encuesta, titulo_encuesta, email_encuestado]
+            );
+
+            if (yaVoto.rows.length > 0) {
+                console.log("⚠️ Usuario ya votó");
+                return res.status(400).json({ success: false, error: 'Ya has votado en esta encuesta' });
+            }
+
+            // Registrar voto
+            await db.query(
+                `INSERT INTO soyucab.opcion 
+                (tipo_encuesta, titulo_encuesta, numero_opcion, email_encuestado, completada)
+                VALUES ($1, $2, $3, $4, TRUE)`,
+                [tipo_encuesta, titulo_encuesta, numero_opcion, email_encuestado]
+            );
+
+            console.log("✅ Voto registrado exitosamente");
+            res.json({ success: true, message: 'Voto registrado exitosamente' });
+        } catch (error) {
+            console.error('❌ Error votando:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    // 7. Obtener mis encuestas (para dependencias/organizaciones)
+    async getMisEncuestas(req, res) {
+        try {
+            console.log("🔥🔥🔥 ===== GET MIS ENCUESTAS - INICIO ===== 🔥🔥🔥");
+            console.log("📧 req.params:", req.params);
+            console.log("📧 req.query:", req.query);
+            console.log("📧 req.path:", req.path);
+            console.log("📧 req.originalUrl:", req.originalUrl);
+            
+            const { email } = req.params;
+            console.log("📧 Email extraído:", email);
+            console.log("📧 Tipo de email:", typeof email);
+
+            if (!email) {
+                console.log("❌ Email no proporcionado");
+                return res.status(400).json({ success: false, error: 'Email no proporcionado' });
+            }
+
+            console.log("🔍 Ejecutando query para email:", email);
+
+            const result = await db.query(
+                `SELECT e.*,
+                 (SELECT COUNT(DISTINCT email_encuestado) FROM soyucab.opcion o 
+                  WHERE o.tipo_encuesta = e.tipo_encuesta AND o.titulo_encuesta = e.titulo 
+                  AND o.completada = TRUE) as total_votos
+                 FROM soyucab.encuesta e
+                 WHERE e.email_encuestador = $1
+                 ORDER BY e.fecha_creacion DESC`,
+                [email]
+            );
+
+            console.log("✅ Query ejecutado exitosamente");
+            console.log(`📊 Encuestas encontradas: ${result.rows.length}`);
+            
+            if (result.rows.length > 0) {
+                console.log("📋 Primera encuesta:", result.rows[0].titulo);
+            }
+            
+            console.log("🔥🔥🔥 ===== ENVIANDO RESPUESTA ===== 🔥🔥🔥");
+            res.json({ success: true, data: result.rows });
+        } catch (error) {
+            console.error('❌❌❌ ERROR EN GET MIS ENCUESTAS:', error);
+            console.error('Stack trace:', error.stack);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    },
+
+    // 8. Eliminar encuesta (solo el creador puede eliminar)
+    async deleteEncuesta(req, res) {
+        try {
+            console.log("🗑️ DELETE ENCUESTA - Inicio");
+            const { tipo_encuesta, titulo } = req.params;
+            const { email_encuestador } = req.body;
+            console.log("🗑️ Parámetros:", { tipo_encuesta, titulo, email_encuestador });
+
+            await db.query('BEGIN');
+
+            try {
+                // Verificar que el usuario sea el creador
+                const encuesta = await db.query(
+                    `SELECT email_encuestador FROM soyucab.encuesta 
+                     WHERE tipo_encuesta = $1 AND titulo = $2`,
+                    [tipo_encuesta, titulo]
+                );
+
+                if (encuesta.rows.length === 0) {
+                    await db.query('ROLLBACK');
+                    console.log("❌ Encuesta no encontrada");
+                    return res.status(404).json({ success: false, error: 'Encuesta no encontrada' });
+                }
+
+                if (encuesta.rows[0].email_encuestador !== email_encuestador) {
+                    await db.query('ROLLBACK');
+                    console.log("❌ Sin permiso para eliminar");
+                    return res.status(403).json({ success: false, error: 'No tienes permiso para eliminar esta encuesta' });
+                }
+
+                console.log("🗑️ Eliminando datos relacionados...");
+
+                // Eliminar en orden debido a las foreign keys
+                await db.query(
+                    `DELETE FROM soyucab.opcion 
+                     WHERE tipo_encuesta = $1 AND titulo_encuesta = $2`,
+                    [tipo_encuesta, titulo]
+                );
+
+                await db.query(
+                    `DELETE FROM soyucab.opcion_texto 
+                     WHERE tipo_encuesta = $1 AND titulo_encuesta = $2`,
+                    [tipo_encuesta, titulo]
+                );
+
+                await db.query(
+                    `DELETE FROM soyucab.audiencia 
+                     WHERE tipo_encuesta = $1 AND titulo = $2`,
+                    [tipo_encuesta, titulo]
+                );
+
+                await db.query(
+                    `DELETE FROM soyucab.requisitos_participacion 
+                     WHERE tipo_encuesta = $1 AND titulo = $2`,
+                    [tipo_encuesta, titulo]
+                );
+
+                await db.query(
+                    `DELETE FROM soyucab.encuesta 
+                     WHERE tipo_encuesta = $1 AND titulo = $2`,
+                    [tipo_encuesta, titulo]
+                );
+
+                await db.query('COMMIT');
+                console.log("✅ Encuesta eliminada exitosamente");
+                res.json({ success: true, message: 'Encuesta eliminada exitosamente' });
+            } catch (error) {
+                await db.query('ROLLBACK');
+                throw error;
+            }
+        } catch (error) {
+            console.error('❌ Error eliminando encuesta:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+};
+
+module.exports = encuestaController;

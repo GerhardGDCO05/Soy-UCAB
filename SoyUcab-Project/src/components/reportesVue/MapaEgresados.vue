@@ -5,7 +5,64 @@
         <img src="../../../public/logo-ucab3.png" alt="Logo Ucab">
       </div>
       <div class="buscador">
-        <input type="text" name="" id="">
+        <input 
+          type="text" 
+          placeholder="Buscar..."
+          v-model="searchQuery"
+          @input="handleSearch"
+          @focus="showResults = true"
+        >
+        <div v-if="showResults && searchResults.length > 0" class="search-results">
+          <div 
+            v-for="result in searchResults" 
+            :key="result.id" 
+            class="search-result-item"
+          >
+            <div class="result-info">
+              <strong>{{ result.nombre }}</strong>
+              <small>{{ result.tipo }} • @{{ result.handle }}</small>
+            </div>
+            <div class="result-actions">
+              <button 
+                v-if="result.tipo === 'Persona'" 
+                @click="handleFollow(result.id, true)"
+                class="btn-seguir"
+              >
+                Seguir
+              </button>
+              <button 
+                v-if="result.tipo === 'Persona'" 
+                @click="handleFollow(result.id, false)"
+                class="btn-amistad"
+              >
+                Amistad
+              </button>
+              <button 
+                v-if="result.tipo === 'Dependencia' || result.tipo === 'Organizacion'" 
+                @click="handleFollow(result.id, true)"
+                class="btn-seguir"
+              >
+                Seguir
+              </button>
+              <div v-if="result.tipo === 'Grupo'" class="result-actions">
+                <button 
+                  v-if="userGroups.has(result.id)" 
+                  @click="goToGroup(result.id)"
+                  class="btn-ver"
+                >
+                  Ver
+                </button>
+                <button 
+                  v-else 
+                  @click="handleJoinGroup(result.id)"
+                  class="btn-join-group"
+                >
+                  Unirse
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="NavBar">
         <button id='home' @click="Home()"></button>
@@ -144,6 +201,87 @@ const egresados = ref([]);
 const selectedLocation = ref(null);
 const loading = ref(true);
 const error = ref(null);
+
+// Búsqueda
+const searchQuery = ref('');
+const searchResults = ref([]);
+const showResults = ref(false);
+const userGroups = ref(new Set());
+let searchTimeout = null;
+
+const handleSearch = () => {
+    clearTimeout(searchTimeout);
+    if (!searchQuery.value.trim()) {
+        searchResults.value = [];
+        return;
+    }
+    searchTimeout = setTimeout(async () => {
+        const result = await service.searchGlobal(searchQuery.value);
+        if (result.success) {
+            searchResults.value = result.data;
+            showResults.value = true;
+        }
+    }, 300);
+};
+
+const handleFollow = async (targetEmail, esSeguimiento) => {
+    const user = service.getStoredUser();
+    if (!user?.email) {
+        alert('Debes iniciar sesión');
+        return;
+    }
+    
+    try {
+        const result = await service.createRelation(targetEmail, esSeguimiento);
+        if (result.success) {
+            alert(esSeguimiento ? 'Ahora sigues a este usuario' : 'Solicitud de amistad enviada');
+            searchResults.value = searchResults.value.filter(r => r.id !== targetEmail);
+        } else {
+            alert(result.error || 'Error al crear relación');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Error al procesar la solicitud');
+    }
+};
+
+const goToGroup = (groupName) => {
+    router.push({ name: 'GroupDashboard', params: { name: groupName } });
+    showResults.value = false;
+};
+
+const loadUserGroups = async () => {
+    try {
+        const res = await service.getMyGroups();
+        if (res.success && res.data) {
+            userGroups.value = new Set(res.data.map(g => g.nombre));
+        }
+    } catch (e) {
+        console.error("Error cargando grupos del usuario:", e);
+    }
+};
+
+const handleJoinGroup = async (groupName) => {
+    try {
+        const res = await service.joinGroup(groupName);
+        if (res.success) {
+            alert(res.message || 'Te has unido al grupo');
+            await loadUserGroups(); // Refrescar lista
+            showResults.value = false;
+        } else {
+            alert(res.error || 'No se pudo unir al grupo');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Error al unirse al grupo');
+    }
+};
+
+const handleClickOutside = (event) => {
+    if (!event.target.closest('.buscador')) {
+        showResults.value = false;
+    }
+};
 
 let map = null;
 let L = null;
@@ -389,28 +527,54 @@ const loadEgresados = async () => {
 const initMap = async () => {
   try {
     error.value = null;
+    console.log('=== INICIANDO MAPA ===');
+    
+    if (!mapContainer.value) {
+      error.value = 'Contenedor del mapa no encontrado';
+      return;
+    }
+    
     L = await import('leaflet');
     
-    // Solución para iconos Leaflet
+    // Iconos ya corregidos
     delete L.Icon.Default.prototype._getIconUrl;
     L.Icon.Default.mergeOptions({
-      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
     });
 
+    // Crear mapa
     map = L.map(mapContainer.value).setView([15, -60], 3);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
+    
+    // PRUEBA: Usar tiles alternativos
+    // Opción 1: CartoDB (muy confiable)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '©OpenStreetMap, ©CartoDB',
+      subdomains: 'abcd',
+      maxZoom: 19
     }).addTo(map);
     
+    // O Opción 2: ESRI (alternativa)
+    // L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+    //   attribution: 'Tiles © Esri'
+    // }).addTo(map);
+    
+    console.log('TileLayer CartoDB añadido');
+    
+    // Forzar redimensionamiento
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+    
     await loadEgresados();
+    
   } catch (err) {
     error.value = 'Error al cargar el mapa: ' + err.message;
     loading.value = false;
+    console.error('Error detallado:', err);
   }
 };
-
 const getCountryInfo = (countryName) => {
   if (!countryName) return { code: '??', coordinates: [0, 0] };
   let countryInfo = countryMapping[countryName];
@@ -469,6 +633,13 @@ const getFlagEmoji = (name) => {
 const getCountryName = (name) => name || 'Desconocido';
 const formatDate = (date) => date ? new Date(date).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Fecha no disponible';
 
-onMounted(initMap);
-onUnmounted(() => { if (map) map.remove(); });
+onMounted(() => {
+  initMap();
+  loadUserGroups();
+  document.addEventListener('click', handleClickOutside);
+});
+onUnmounted(() => { 
+  if (map) map.remove(); 
+  document.removeEventListener('click', handleClickOutside);
+});
 </script>

@@ -1,16 +1,5 @@
 /* ESTILOS ESPECÍFICOS PARA RECONOCIMIENTO A PROFESORES */
 
-
-.filter-controls {
-    grid-column: 3 / 5;
-    grid-row: 1 / 4;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    
-}
-
-
 /* Botón Ver Perfil */
 .btn-ver-perfil, .btn-seguir {
     align-self: flex-start;

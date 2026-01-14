@@ -12,7 +12,7 @@
   padding: 20px;
   border-right: 1px solid #dee2e6;
   overflow-y: auto;
-  box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
   z-index: 1000;
 }
 
@@ -87,7 +87,7 @@
   width: 350px;
   height: 100%;
   background-color: white;
-  box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
   transition: right 0.3s ease;
   z-index: 1001;
   overflow-y: auto;
@@ -127,7 +127,7 @@
 }
 
 .close-btn:hover {
-  background-color: rgba(255,255,255,0.1);
+  background-color: rgba(255, 255, 255, 0.1);
   border-radius: 50%;
 }
 
@@ -238,3 +238,92 @@
   background-color: #2980b9;
 }
 
+/* Búsqueda en Header del Mapa */
+.buscador {
+  position: relative;
+  z-index: 2000;
+}
+
+.buscador input {
+  width: 220px;
+  padding: 8px 15px;
+  border-radius: 20px;
+  border: 1px solid #ddd;
+  outline: none;
+  font-size: 0.9rem;
+}
+
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  margin-top: 5px;
+  max-height: 400px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 2001;
+  width: 280px;
+}
+
+.search-result-item {
+  padding: 10px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.2s;
+}
+
+.search-result-item:hover {
+  background: #f8f9fa;
+}
+
+.result-info {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.result-info strong {
+  font-size: 0.85rem;
+  color: #333;
+}
+
+.result-info small {
+  font-size: 0.7rem;
+  color: #666;
+}
+
+.result-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.result-actions button {
+  padding: 4px 6px;
+  font-size: 0.7rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: white;
+  font-weight: 600;
+}
+
+.btn-seguir {
+  background: #007bff;
+}
+
+.btn-amistad {
+  background: #28a745;
+}
+
+.btn-join-group {
+  background: #28a745;
+}
+
+.btn-ver {
+  background: #6c757d;
+}

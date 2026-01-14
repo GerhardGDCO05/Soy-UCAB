@@ -1,7 +1,7 @@
 header {
     grid-column: span 5 / span 5;
     display: grid;
-    grid-template-columns: repeat(6,1fr);
+    grid-template-columns: repeat(6, 1fr);
     grid-template-rows: repeat(1, 1fr);
     align-items: center;
     justify-items: center;
@@ -12,14 +12,116 @@ header {
     grid-column: 2 / 3;
     justify-content: center;
     align-items: center;
+    position: relative;
 }
-.logoUcab{
+
+.search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+    max-height: 400px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+}
+
+.search-result-item {
+    padding: 0.8rem;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.search-result-item:hover {
+    background: #f8f9fa;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.result-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.result-info strong {
+    font-size: 0.95rem;
+    color: #333;
+}
+
+.result-info small {
+    font-size: 0.75rem;
+    color: #666;
+}
+
+.result-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.result-actions button {
+    padding: 0.4rem 0.8rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+
+.btn-seguir {
+    background: #007bff;
+    color: white;
+}
+
+.btn-seguir:hover {
+    background: #0056b3;
+}
+
+.btn-amistad {
+    background: #28a745;
+    color: white;
+}
+
+.btn-amistad:hover {
+    background: #1e7e34;
+}
+
+.btn-ver {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-ver:hover {
+    background: #545b62;
+}
+
+.btn-join-group {
+    background: #28a745;
+    color: white;
+}
+
+.btn-join-group:hover {
+    background: #1e7e34;
+}
+
+.logoUcab {
     grid-column: 1 / 2;
     height: auto;
 }
+
 img {
     height: 4rem;
 }
+
 .buscador input {
     width: 15rem;
     height: 1rem;
@@ -27,6 +129,7 @@ img {
     border-radius: 5vh;
     padding: 0.5rem;
 }
+
 .NavBar {
     grid-column: 3 / 7;
     width: 100%;
@@ -67,6 +170,19 @@ img {
 #perfil {
     background-image: url(../../../public/usuario.png);
 }
+
+#anuncio {
+    background-image: url(../../../public/anuncio.png)
+}
+
+#encuesta {
+    background-image: url(../../../public/polling.png)
+}
+
+#search {
+    background-image: url(../../../public/index.png)  
+}
+
 #reportsButtom {
     border-radius: 2rem;
     border: 1px solid #ccc;
@@ -81,7 +197,7 @@ img {
 }
 
 /* Contenedor interno para el botón de reportes */
-#reportsButtom > .contenido-boton {
+#reportsButtom>.contenido-boton {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -103,23 +219,50 @@ img {
     object-fit: contain;
     margin: 0;
 }
-button:hover{
+
+button:hover {
     transform: scale(1.1);
     opacity: 0.8;
     transition: all 0.2s ease;
 }
+
 .logout-btn {
-  background-color: transparent;
-  color: var(--danger-color);
-  border: 0.1rem solid var(--danger-color);
-  padding: 0.6rem 1.2rem;
-  border-radius: var(--radius-md);
-  margin-top: 1rem;
-  width: 100%; /* Para que ocupe el ancho de la sidebar */
+    background-color: transparent;
+    color: var(--danger-color);
+    border: 0.1rem solid var(--danger-color);
+    padding: 0.6rem 1.2rem;
+    border-radius: var(--radius-md);
+    margin-top: 1rem;
+    width: 100%;
+    /* Para que ocupe el ancho de la sidebar */
 }
 
 .logout-btn:hover {
-  background-color: var(--danger-color);
-  color: white;
-  transform: translateY(-0.1rem);
+    background-color: var(--danger-color);
+    color: white;
+    transform: translateY(-0.1rem);
+}
+
+.buscador {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-advanced-search {
+    background-image: url(../../../public/index.png);
+    background-size: contain; /* o cover */
+    background-repeat: no-repeat;
+    background-position: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 0%;
+    cursor: pointer;
+}
+
+/* Ocultar el ícono de Font Awesome si quieres usar solo tu imagen */
+.btn-advanced-search i {
+    display: none;
 }

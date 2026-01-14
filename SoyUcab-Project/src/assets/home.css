@@ -5,7 +5,8 @@
   --danger-color: #ff4757;
   --text-main: #2c3e50;
   --text-muted: #7f8c8d;
-  --bg-body: #f0f2f5; /* Un gris sutil para que los paneles resalten */
+  --bg-body: #f0f2f5;
+  /* Un gris sutil para que los paneles resalten */
   --bg-white: #ffffff;
   --border-color: #eef2f3;
   --radius-lg: 1rem;
@@ -30,7 +31,7 @@ body {
 /* --- LAYOUT PRINCIPAL (3 Columnas) --- */
 .container {
   display: grid;
-  grid-template-columns: 1.2fr 3fr 1.5fr; 
+  grid-template-columns: 1.2fr 3fr 1.5fr;
   gap: var(--gap-main);
   padding: 1.5rem;
   width: 100%;
@@ -53,15 +54,18 @@ body {
 /* --- SIDEBARS (Izquierda y Derecha) --- */
 .sidebar {
   position: sticky;
-  top: 1.5rem; /* Se queda fijo al hacer scroll */
-  height: calc(100vh - 3rem); /* Ocupa todo el alto disponible */
-  overflow-y: auto; /* Scroll interno si hay mucho contenido */
+  top: 1.5rem;
+  height: calc(100vh - 3rem);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  /* Para navegadores modernos */
 }
 
 /* Personalización del scroll interno de las sidebars */
 .sidebar::-webkit-scrollbar {
   width: 0.4rem;
 }
+
 .sidebar::-webkit-scrollbar-thumb {
   background: #ccd0d5;
   border-radius: 1rem;
@@ -86,11 +90,14 @@ body {
   color: var(--text-main);
 }
 
+/* STATS GRID: 3 Columnas para que quepan (Seguidores, Siguiendo, Publicaciones, Amistades, Solicitudes, Enviadas) */
 .user-stats {
-  display: flex;
-  justify-content: space-around;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  /* Espacio entre items */
   background-color: var(--bg-body);
-  padding: 1rem;
+  padding: 1rem 0.5rem;
   border-radius: var(--radius-md);
   text-align: center;
 }
@@ -106,21 +113,271 @@ body {
   color: var(--text-muted);
 }
 
+.stat-item {
+  cursor: pointer;
+  transition: background-color 0.2s;
+  padding: 0.5rem;
+  border-radius: var(--radius-md);
+}
+
+.stat-item:hover {
+  background-color: #e1f5fe;
+}
+
+/* --- MODALES --- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-body {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.user-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.user-list-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-list-avatar {
+  font-size: 24px;
+  color: #3498db;
+}
+
+.btn-small {
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  border-radius: 15px;
+}
+
+
 /* --- PANEL CENTRAL (FEED) --- */
 .middle-panel {
   min-height: 100vh;
-  background: transparent; /* El fondo lo dan las tarjetas */
+  background: transparent;
+  /* El fondo lo dan las tarjetas */
   box-shadow: none;
   padding: 0;
 }
 
-.post-card, .create-post {
+.post-card,
+.create-post {
   background: var(--bg-white);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
   box-shadow: 0 0.1rem 0.5rem rgba(0, 0, 0, 0.05);
 }
+
+/* ZONA FIJA SUPERIOR (Actualizada) */
+.feed-header {
+  background-color: var(--bg-body);
+  margin-bottom: 1.5rem;
+}
+
+/* --- SUGERENCIAS --- */
+.suggestions-wrapper {
+  background: white;
+  border-radius: var(--radius-lg);
+  margin-bottom: 1.5rem;
+  padding: 1.2rem 0;
+  box-shadow: 0 0.1rem 0.5rem rgba(0, 0, 0, 0.05);
+  width: 100%;
+}
+
+.section-title-sm {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 1.5rem 1rem 1.5rem;
+}
+
+.suggestions-horizontal {
+  display: flex;
+  overflow-x: auto;
+  gap: 15px;
+  padding: 0 1.5rem 0.5rem 1.5rem;
+  width: 100%;
+  box-sizing: border-box;
+  scroll-behavior: smooth;
+}
+
+.suggestions-horizontal::-webkit-scrollbar {
+  height: 6px;
+}
+
+.suggestions-horizontal::-webkit-scrollbar-thumb {
+  background: #eee;
+  border-radius: 10px;
+}
+
+.suggestion-card-h {
+  flex: 0 0 145px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 12px;
+  border: 1px solid #f0f2f5;
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.suggestion-card-h:hover {
+  transform: translateY(-3px);
+  border-color: #3498db;
+  background: #fcfcfc;
+}
+
+.suggestion-avatar-h {
+  font-size: 2rem;
+  color: #3498db;
+  margin-bottom: 8px;
+  background: #f8f9fa;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.suggestion-name-h {
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  color: #333;
+}
+
+.suggestion-meta-h {
+  font-size: 0.65rem;
+  color: #777;
+  margin-top: 2px;
+  margin-bottom: 8px;
+}
+
+.suggestion-actions {
+  display: flex;
+  gap: 5px;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.btn-follow-sm,
+.btn-friend-sm,
+.btn-ver-group {
+  font-size: 0.75rem;
+  padding: 6px 4px;
+  border-radius: 6px;
+  flex: 1;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.btn-follow-sm {
+  background: #007bff;
+  color: white;
+}
+
+.btn-friend-sm {
+  background: #28a745;
+  color: white;
+}
+
+.btn-ver-group {
+  background: #6c757d;
+  color: white;
+  margin-top: 8px;
+  width: 100%;
+  font-size: 0.75rem;
+  padding: 8px;
+}
+
+.btn-join-group {
+  background: #28a745;
+  color: white;
+  margin-top: 8px;
+  width: 100%;
+  font-size: 0.75rem;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-follow-sm:hover {
+  background: #0056b3;
+}
+
+.btn-friend-sm:hover {
+  background: #218838;
+}
+
+.btn-ver-group:hover {
+  background: #5a6268;
+  transform: translateY(-2px);
+}
+
+.btn-join-group:hover {
+  background: #218838;
+  transform: translateY(-2px);
+}
+
+.create-post-wrapper {
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  padding-bottom: 0.5rem;
+  /* Ajuste */
+}
+
 
 /* --- BOTONES --- */
 button {
@@ -138,16 +395,19 @@ button {
   gap: 0.5rem;
 }
 
-.btn-save, .post-submit-btn {
+.btn-save,
+.post-submit-btn {
   background-color: var(--primary-color);
   color: white;
 }
 
-.btn-save:hover, .post-submit-btn:hover {
+.btn-save:hover,
+.post-submit-btn:hover {
   background-color: #2980b9;
 }
 
-.account-action-btn, .post-action {
+.account-action-btn,
+.post-action {
   background-color: var(--bg-body);
   color: var(--text-main);
 }
@@ -167,7 +427,9 @@ button {
 }
 
 /* --- FORMULARIOS --- */
-input, textarea, select {
+input,
+textarea,
+select {
   width: 100%;
   padding: 0.8rem;
   border: 0.1rem solid #e4e6eb;
@@ -177,7 +439,8 @@ input, textarea, select {
   background-color: #f9f9f9;
 }
 
-input:focus, textarea:focus {
+input:focus,
+textarea:focus {
   outline: none;
   border-color: var(--primary-color);
   background-color: white;
@@ -219,6 +482,7 @@ input:focus, textarea:focus {
   .container {
     grid-template-columns: 1fr 2fr;
   }
+
   .right-panel {
     display: none;
   }
@@ -229,9 +493,40 @@ input:focus, textarea:focus {
     grid-template-columns: 1fr;
     padding: 0.5rem;
   }
+
   .sidebar {
     position: relative;
     height: auto;
     top: 0;
   }
+}
+
+.btn-feed {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-feed:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.btn-feed i {
+    font-size: 18px;
+}
+
+.feed-action-wrapper {
+    padding: 16px;
+    border-bottom: 1px solid #e1e8ed;
 }

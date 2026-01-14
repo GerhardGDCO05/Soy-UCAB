@@ -6,10 +6,6 @@
             <h1>Reportes</h1>
             <h2>Reconocimiento a Profesores</h2>
             
-            <div v-if="loading" class="loading-state">
-                Cargando reconocimientos...
-            </div>
-            
             <div v-if="error" class="error-state">
                 <span class="error-message">{{ error }}</span>
                 <button @click="loadMentions" class="retry-button">

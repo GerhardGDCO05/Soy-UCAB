@@ -243,7 +243,7 @@
         <div v-if="personaTipo === 'estudiante'">
           <div class="form-group">
             <label>Carrera *</label>
-            <input type="text" v-model="estudianteData.carrera" />
+            <input type="text" v-model="estudianteData.carrera_programa" />
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -267,6 +267,62 @@
             <div class="tag-container">
               <span v-for="(t, i) in egresadoData.titulos" :key="i" class="tag">
                 {{ t }} <span class="remove-tag" @click="removeTitulo(i)">×</span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div v-if="personaTipo === 'profesor'">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Fecha de Ingreso *</label>
+              <input type="date" v-model="profesorData.fecha_ingreso" />
+            </div>
+            <div class="form-group">
+              <label>Dedicación *</label>
+              <input type="text" v-model="profesorData.dedicacion" placeholder="Ej: Tiempo Completo" />
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>Categoría *</label>
+            <input type="text" v-model="profesorData.categoria" placeholder="Ej: Instructor, Agregado, Titular" />
+          </div>
+
+          <div class="form-group">
+            <label>Facultad(es)</label>
+            <div class="multivalue-input">
+              <input type="text" v-model="currentFacultad" placeholder="Ej: Ingeniería" @keyup.enter="addFacultad" />
+              <button class="add-btn" @click="addFacultad">+</button>
+            </div>
+            <div class="tag-container">
+              <span v-for="(f, i) in profesorData.facultades" :key="i" class="tag">
+                {{ f }} <span class="remove-tag" @click="removeFacultad(i)">×</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Departamento(s)</label>
+            <div class="multivalue-input">
+              <input type="text" v-model="currentDepartamento" placeholder="Ej: Informática" @keyup.enter="addDepartamento" />
+              <button class="add-btn" @click="addDepartamento">+</button>
+            </div>
+            <div class="tag-container">
+              <span v-for="(d, i) in profesorData.departamentos" :key="i" class="tag">
+                {{ d }} <span class="remove-tag" @click="removeDepartamento(i)">×</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Materia(s) Impartida(s)</label>
+            <div class="multivalue-input">
+              <input type="text" v-model="currentMateria" placeholder="Ej: Base de Datos" @keyup.enter="addMateria" />
+              <button class="add-btn" @click="addMateria">+</button>
+            </div>
+            <div class="tag-container">
+              <span v-for="(m, i) in profesorData.materias" :key="i" class="tag">
+                {{ m }} <span class="remove-tag" @click="removeMateria(i)">×</span>
               </span>
             </div>
           </div>
@@ -306,6 +362,31 @@
           <label>Nombre *</label>
           <input type="text" v-model="organizacionData.nombre" />
         </div>
+        
+        <!-- ZONA AGREGADA: Datos Adicionales -->
+        <div class="form-group">
+          <label>Descripción (Opcional)</label>
+          <textarea v-model="organizacionData.descripcion" rows="3" placeholder="Descripción de la organización"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Página Web (Opcional)</label>
+          <input type="url" v-model="organizacionData.pagina_web" placeholder="https://..." />
+        </div>
+
+        <div class="form-group">
+          <label>Tipos de Colaboración (Opcional)</label>
+          <div class="multivalue-input">
+            <input type="text" v-model="currentColaboracion" placeholder="Ej: Pasantías" @keyup.enter="addColaboracion" />
+            <button class="add-btn" @click="addColaboracion">+</button>
+          </div>
+          <div class="tag-container">
+            <span v-for="(colab, index) in organizacionData.tipos_colaboracion" :key="index" class="tag">
+              {{ colab }} <span class="remove-tag" @click="removeColaboracion(index)">×</span>
+            </span>
+          </div>
+        </div>
+        <!-- FIN ZONA AGREGADA -->
         <div class="button-group">
           <button class="secondary-btn" @click="currentStep = 3">Atrás</button>
           <button class="primary-btn" @click="handleRegistration" :disabled="loading">Finalizar</button>
@@ -377,7 +458,7 @@ export default {
       
       // Datos específicos por tipo de persona
       estudianteData: {
-        carrera: '',
+        carrera_programa: '',
         facultad: '',
         semestre: '',
         promedio: ''
@@ -609,7 +690,11 @@ export default {
           };
           
           if (this.personaTipo === 'estudiante') {
-            Object.assign(finalData, { ...this.estudianteData, email_dominio_estudiante: this.generateInstitutionalEmail(this.email) });
+            Object.assign(finalData, { 
+              ...this.estudianteData, 
+              promedio: this.estudianteData.promedio || null,
+              email_dominio_estudiante: this.generateInstitutionalEmail(this.email) 
+            });
           } else if (this.personaTipo === 'egresado') {
             Object.assign(finalData, { ...this.egresadoData, fecha_acto_grado: this.formatDateForAPI(this.egresadoData.fecha_grado) });
           } else if (this.personaTipo === 'profesor') {

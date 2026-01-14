@@ -1,6 +1,10 @@
 <<<<<<< Updated upstream
 import { createRouter, createWebHistory } from 'vue-router'
 import usuarioServices from '@/services/usuarioServices' // Importamos el servicio
+import PostView from '@/components/posts.vue'
+import PublicProfile from '@/components/PublicProfile.vue' 
+import Encuesta from '@/components/encuesta.vue'
+
 
 const routes = [
   {
@@ -55,13 +59,85 @@ const routes = [
     name: 'AllReports',
     component: () => import('../components/reportesVue/allReports.vue'),
     meta: { requiresAuth: true }
-  }
+  },
+  // ... otros imports
+{
+  path: '/crear-publicacion',
+  name: 'CrearPublicacion',
+  component: () => import('../components/CrearPublicacion.vue')
+},
+// En src/router/router.js
+{
+  path: '/my-feed',
+  name: 'MyFeed',
+  component: () => import('../components/MyFeed.vue') // Verifica que la ruta relativa sea correcta
+},
+{
+  path: '/reporte-top-carreras',
+  name: 'TopCarreras',
+  component: () => import('../components/reportesVue/TopCarreras.vue')
+},
+{
+  path: '/reporte-top-empresas',
+  name: 'TopEmpresas',
+  component: () => import('../components/reportesVue/TopEmpresas.vue')
+},
+{
+  path: '/reporte-top-usuarios',
+  name: 'TopUsuarios',
+  component: () => import('../components/reportesVue/TopUsuarios.vue')
+},
+{
+  path: '/notifications',
+  name: 'Notifications',
+  component: () => import('../components/NotificationsView.vue')
+},
+{
+  path: '/announces',
+  name: 'Announces',
+  component: () => import('../components/Announces.vue'),
+},
+
+{
+    path: '/post/:email/:fecha',
+    name: 'PostView',
+    component: PostView
+},
+{
+  path: '/advanced-search',
+  name: 'Buscar',
+  component: () => import('../components/AdvancedSearch.vue'),
+},
+  {
+    path: '/profile/:email',  // ← Ruta para perfiles públicos
+    name: 'PublicProfile',
+    component: PublicProfile,
+    props: true,  // Importante: pasa el parámetro :email como prop
+    meta: { requiresAuth: true }
+  },
+ {
+    path: '/semaforo',
+    name: 'ReporteSemaforo',
+    // Usamos carga dinámica para evitar errores de importación al inicio
+    component: () => import('../components/reportesVue/SemaforoPagos.vue'),
+    meta: { requiresAuth: true } // Agrégalo si quieres que esté protegido
+  },
+
+  {
+    path: '/encuesta',
+    name: 'Encuesta',
+    component: Encuesta,
+    meta: { requiresAuth: true }
+  },
+
+
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes
 })
+
 
 // --- GUARD DE NAVEGACIÓN (PROTECCIÓN) ---
 router.beforeEach((to, from, next) => {
