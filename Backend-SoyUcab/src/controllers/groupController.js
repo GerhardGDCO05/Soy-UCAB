@@ -114,7 +114,7 @@ const groupController = {
     // POST /api/groups - Crear grupo
     async createGroup(req, res) {
         const { nombre, descripcion, categoria, requisitos_ingreso, privacidad, userEmail } = req.body;
-
+        
         if (!userEmail) return res.status(400).json({ success: false, error: 'Email del creador es requerido' });
         if (!nombre) return res.status(400).json({ success: false, error: 'El nombre del grupo es obligatorio' });
 

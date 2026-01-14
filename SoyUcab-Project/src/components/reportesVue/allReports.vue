@@ -122,7 +122,7 @@ export default {
     },
 
     goToSemaforo() {
-     // this.$router.push('/payment-status');
+     this.$router.push('/semaforo');
     }
   }
 };

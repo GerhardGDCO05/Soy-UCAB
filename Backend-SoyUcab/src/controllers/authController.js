@@ -1,5 +1,5 @@
 const db = require('../config/database');
-const bcrypt = require('bcrypt'); // Se mantiene por si decides usarlo en el futuro
+const bcrypt = require('bcrypt');
 
 const authController = {
   /**
@@ -68,9 +68,9 @@ const authController = {
             `INSERT INTO soyucab.dependencia_ucab
              (nombre_institucional, email, descripcion, logo, pagina_web, fecha_creacion, estado, responsable, ubicacion_fisica, edificio)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-            [nombre_institucional, email, descripcion, logo || null, pagina_web || null, 
-             fecha_creacion || new Date().toISOString().split('T')[0], estado || 'activa', 
-             responsable || 'Admin', ubicacion_fisica || null, edificio || null]
+            [nombre_institucional, email, descripcion, logo || null, pagina_web || null,
+              fecha_creacion || new Date().toISOString().split('T')[0], estado || 'activa',
+              responsable || 'Admin', ubicacion_fisica || null, edificio || null]
           );
         } else {
           const tiposColab = Array.isArray(tipos_colaboracion) ? JSON.stringify(tipos_colaboracion) : tipos_colaboracion;
@@ -172,7 +172,7 @@ const authController = {
     try {
       const { email } = req.params;
       const updates = req.body;
-      
+
       const setClause = Object.keys(updates).map((k, i) => `${k} = $${i + 2}`).join(', ');
       const values = [email, ...Object.values(updates)];
 
@@ -191,7 +191,7 @@ const authController = {
     try {
       const { email } = req.params;
       const updates = req.body;
-      
+
       const setClause = Object.keys(updates).map((k, i) => `${k} = $${i + 2}`).join(', ');
       const values = [email, ...Object.values(updates)];
 
@@ -228,7 +228,7 @@ const authController = {
     const per = await db.query('SELECT * FROM soyucab.persona WHERE email_persona = $1', [email]);
     if (per.rows.length > 0) {
       persona_info = per.rows[0];
-      
+
       // Estudiante
       const est = await db.query('SELECT * FROM soyucab.estudiante WHERE email_estudiante = $1', [email]);
       if (est.rows.length > 0) academicInfo.estudiante = est.rows[0];

@@ -205,25 +205,36 @@ export default {
   async createGroup(groupData) {
     try {
       const user = this.getStoredUser();
-      // Ajustamos el payload para que coincida con lo que espera el backend y la DB
+
+      // Obtener el email
+      const userEmail = groupData.userEmail || user.email;
+
+      if (!userEmail) {
+        throw new Error('Email del creador es requerido');
+      }
+
       const payload = {
         nombre: groupData.nombre,
         descripcion: groupData.descripcion,
         categoria: groupData.categoria,
         requisitos_ingreso: groupData.requisitos_ingreso || '',
-        email: user.email, // El creador según la tabla soyucab.grupo
-        estado: 'activo',  // Valor por defecto del enum soyucab.estado_grupo
-        privacidad: groupData.privacidad // 'publico' o 'privado'
+        userEmail: userEmail,
+        estado: 'activo',
+        privacidad: groupData.privacidad
       };
 
       const response = await api.post('/groups', payload);
+
       return {
         success: response.data.success,
         data: response.data.data
       };
     } catch (error) {
       console.error("Error creando grupo:", error);
-      return { success: false, error: error.message };
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message
+      };
     }
   },
 
@@ -686,6 +697,55 @@ export default {
     }
   },
 
+  //=====================Roles===============================
+  async getUserRoles(email) {
+    try {
+      if (!email || email.trim() === '') {
+        return {
+          success: false,
+          error: 'Email del usuario es requerido'
+        };
+      }
+
+      const response = await api.get(`/user-roles/user/${encodeURIComponent(email)}`);
+
+      return {
+        success: true,
+        data: response.data.data,
+        message: 'Roles obtenidos correctamente'
+      };
+    } catch (error) {
+      console.error("[UserService] Error obteniendo roles del usuario:", error);
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Error al obtener los roles del usuario',
+        status: error.response?.status
+      };
+    }
+  },
+
+  /**
+   * Obtiene los roles del usuario actual (sesión)
+   */
+  async getMyRoles() {
+    try {
+      const user = this.getStoredUser();
+      if (!user || !user.email) {
+        return {
+          success: false,
+          error: 'No hay usuario en sesión'
+        };
+      }
+      return await this.getUserRoles(user.email);
+    } catch (error) {
+      console.error("[UserService] Error obteniendo mis roles:", error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  },
+
   // ==================== UTILITIES ====================
 
   logout() {
@@ -698,9 +758,19 @@ export default {
     return !!localStorage.getItem('user');
   },
 
+  // En usuarioServices.js, verifica que getStoredUser devuelva el email
   getStoredUser() {
-    const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return null;
+
+      const user = JSON.parse(userStr);
+      console.log('Usuario en localStorage:', user); // Para debug
+      return user;
+    } catch (error) {
+      console.error('Error parseando usuario:', error);
+      return null;
+    }
   },
 
   formatDateDB(dateString) {
