@@ -20,19 +20,25 @@
 
           <!-- Tipo de Usuario -->
           <div class="filter-group">
-            <label>Tipo de Usuario</label>
+            <label>Tipo</label>
             <select v-model="filters.tipoUsuario" @change="performSearch">
               <option value="">Todos</option>
-              <option value="Estudiante">Estudiante</option>
-              <option value="Egresado">Egresado</option>
-              <option value="Profesor">Profesor</option>
-              <option value="Personal Administrativo">Personal Administrativo</option>
-              <option value="Personal Obrero">Personal Obrero</option>
+              <optgroup label="Personas">
+                <option value="Estudiante">Estudiante</option>
+                <option value="Egresado">Egresado</option>
+                <option value="Profesor">Profesor</option>
+                <option value="Personal Administrativo">Personal Administrativo</option>
+                <option value="Personal Obrero">Personal Obrero</option>
+              </optgroup>
+              <optgroup label="Entidades">
+                <option value="dependencia">Dependencia</option>
+                <option value="organizacion">Organización</option>
+              </optgroup>
             </select>
           </div>
 
-          <!-- Género -->
-          <div class="filter-group">
+          <!-- Género (solo para personas) -->
+          <div class="filter-group" v-if="isPersonType">
             <label>Género</label>
             <select v-model="filters.genero" @change="performSearch">
               <option value="">Todos</option>
@@ -42,7 +48,7 @@
           </div>
 
           <!-- Facultad (para estudiantes y egresados) -->
-          <div class="filter-group" v-if="filters.tipoUsuario === 'Estudiante' || filters.tipoUsuario === 'Egresado' || filters.tipoUsuario === ''">
+          <div class="filter-group" v-if="showFacultadFilter">
             <label>Facultad</label>
             <select v-model="filters.facultad" @change="performSearch">
               <option value="">Todas</option>
@@ -104,17 +110,17 @@
             v-for="user in results" 
             :key="user.email"
             class="user-card panel"
-            @click="goToProfile(user.email)"
+            @click="goToProfile(user)"
           >
             <div class="user-avatar">
-              <i class="fas fa-user-circle"></i>
+              <i :class="getAvatarIcon(user.tipo_miembro)"></i>
             </div>
             <div class="user-info">
               <h3>{{ user.nombres }} {{ user.apellidos }}</h3>
               <p class="username">@{{ user.nombre_usuario }}</p>
               <div class="user-meta">
                 <span class="badge" :class="getBadgeClass(user.tipo_miembro)">
-                  {{ user.tipo_miembro }}
+                  {{ getTipoLabel(user.tipo_miembro) }}
                 </span>
                 <span v-if="user.tipo_conexion && user.grado_separacion < 999" class="badge badge-connection">
                   <i class="fas fa-link"></i> {{ user.tipo_conexion }}
@@ -130,7 +136,7 @@
                 </span>
               </div>
             </div>
-            <div class="user-actions">
+            <div class="user-actions" v-if="isPersonType || filters.tipoUsuario === ''">
               <button @click.stop="followUser(user.email)" class="btn-follow">
                 <i class="fas fa-user-plus"></i> Seguir
               </button>
@@ -165,6 +171,17 @@ export default {
       searchTimeout: null
     }
   },
+  computed: {
+    isPersonType() {
+      const personTypes = ['Estudiante', 'Egresado', 'Profesor', 'Personal Administrativo', 'Personal Obrero', ''];
+      return personTypes.includes(this.filters.tipoUsuario);
+    },
+    showFacultadFilter() {
+      return this.filters.tipoUsuario === 'Estudiante' || 
+             this.filters.tipoUsuario === 'Egresado' || 
+             this.filters.tipoUsuario === '';
+    }
+  },
   methods: {
     debouncedSearch() {
       clearTimeout(this.searchTimeout);
@@ -182,7 +199,7 @@ export default {
         
         // Construir query params
         const params = {
-          user_email: user.email || '' // Para calcular grados de separación
+          user_email: user.email || ''
         };
         
         if (this.filters.searchText) params.search = this.filters.searchText;
@@ -217,10 +234,11 @@ export default {
       this.results = [];
       this.hasSearched = false;
     },
-// AdvancedSearch.vue - Esto ya lo tienes, solo asegúrate que el router de Vue tenga ese name
-goToProfile(email) {
-  this.$router.push({ name: 'PublicProfile', params: { email } });
-},
+
+    goToProfile(user) {
+      // Por ahora todas las entidades usan el mismo perfil
+      this.$router.push({ name: 'PublicProfile', params: { email: user.email } });
+    },
 
     async followUser(email) {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -251,15 +269,51 @@ goToProfile(email) {
         'Egresado': 'badge-graduate',
         'Profesor': 'badge-teacher',
         'Personal Administrativo': 'badge-admin',
-        'Personal Obrero': 'badge-worker'
+        'Personal Obrero': 'badge-worker',
+        'dependencia': 'badge-dependency',
+        'organizacion': 'badge-organization'
       };
       return classes[tipo] || 'badge-default';
+    },
+
+    getAvatarIcon(tipo) {
+      const icons = {
+        'dependencia': 'fas fa-building',
+        'organizacion': 'fas fa-users',
+        'default': 'fas fa-user-circle'
+      };
+      return icons[tipo] || icons['default'];
+    },
+
+    getTipoLabel(tipo) {
+      const labels = {
+        'dependencia': 'Dependencia',
+        'organizacion': 'Organización',
+        'Estudiante': 'Estudiante',
+        'Egresado': 'Egresado',
+        'Profesor': 'Profesor',
+        'Personal Administrativo': 'Personal Administrativo',
+        'Personal Obrero': 'Personal Obrero'
+      };
+      return labels[tipo] || tipo;
     }
   }
 }
 </script>
 
+
+
 <style scoped>
+
+  .badge-dependency {
+  background-color: #6366f1;
+  color: white;
+}
+
+.badge-organization {
+  background-color: #8b5cf6;
+  color: white;}
+  
 .advanced-search-container {
   background: #f0f2f5;
   min-height: 100vh;
@@ -485,4 +539,14 @@ goToProfile(email) {
 .btn-follow:hover {
   background: #1a8cd8;
 }
+.badge-dependency {
+  background-color: #6366f1;
+  color: white;
+}
+
+.badge-organization {
+  background-color: #8b5cf6;
+  color: white;
+}
+
 </style>

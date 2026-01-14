@@ -2,15 +2,15 @@ const express = require('express');
 const router = express.Router();
 const encuestaController = require('../controllers/encuestaController');
 
-console.log('🔥🔥🔥 ARCHIVO DE RUTAS CARGADO 🔥🔥🔥');
+console.log(' ARCHIVO DE RUTAS CARGADO ');
 
 // Middleware que se ejecuta en TODAS las peticiones a /api/encuestas
 router.use((req, res, next) => {
-    console.log('🚀🚀🚀 ===== MIDDLEWARE ENCUESTAS ===== 🚀🚀🚀');
-    console.log('📍 Método:', req.method);
-    console.log('📍 Path:', req.path);
-    console.log('📍 URL completa:', req.originalUrl);
-    console.log('🚀🚀🚀 =============================== 🚀🚀🚀');
+    console.log(' ===== MIDDLEWARE ENCUESTAS ===== ');
+    console.log(' Método:', req.method);
+    console.log(' Path:', req.path);
+    console.log(' URL completa:', req.originalUrl);
+    console.log(' =============================== ');
     next();
 });
 
@@ -21,8 +21,8 @@ router.post('/votar', encuestaController.votarEncuesta);
 
 // ESTA ES LA RUTA IMPORTANTE
 router.get('/mis-encuestas/:email', (req, res) => {
-    console.log('🔥 RUTA /mis-encuestas/:email ALCANZADA');
-    console.log('📧 Email recibido:', req.params.email);
+    console.log(' RUTA /mis-encuestas/:email ALCANZADA');
+    console.log(' Email recibido:', req.params.email);
     encuestaController.getMisEncuestas(req, res);
 });
 

@@ -33,15 +33,16 @@
           </div>
           
           <div class="post-body">
-            <p>{{ post.caption }}</p>
-            <img v-if="post.tipo_contenido === 'imagen'" :src="post.descripcion_publicacion" class="post-media" />
-            <video v-if="post.tipo_contenido === 'video'" controls class="post-media">
-              <source :src="post.descripcion_publicacion" type="video/mp4">
-            </video>
-            <a v-if="post.tipo_contenido === 'enlace'" :href="post.descripcion_publicacion" target="_blank" class="post-link">
-              Ver enlace externo
-            </a>
-          </div>
+  <p>{{ post.caption }}</p>
+  
+  <!-- Si tiene contenido multimedia/enlace, mostrar como link -->
+  <div v-if="post.descripcion_publicacion" class="post-link-container">
+    <i class="fas fa-link"></i>
+    <a :href="formatUrl(post.descripcion_publicacion)" target="_blank" class="post-link">
+      {{ post.descripcion_publicacion }}
+    </a>
+  </div>
+</div>
 
           <div class="post-stats">
             <span><i class="fas fa-heart"></i> {{ post.likes_count || 0 }} Me gusta</span>
@@ -258,7 +259,18 @@ export default {
       if (hours < 24) return `${hours}h`;
       if (days < 7) return `${days}d`;
       return d.toLocaleDateString();
+    },
+
+ formatUrl(url) {
+    if (!url) return '';
+    // Si ya tiene http:// o https://, dejarlo como está
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
     }
+    // Si no, agregar https://
+    return 'https://' + url;
+  }
+
   }
 }
 </script>

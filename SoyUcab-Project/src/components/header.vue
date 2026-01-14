@@ -12,7 +12,7 @@
                 @input="handleSearch"
                 @focus="showResults = true"
             >
-            <button @click="goToAdvancedSearch" class="btn-advanced-search" title="Búsqueda avanzada">
+           <button @click="goToAdvancedSearch" class="btn-advanced-search" title="Búsqueda avanzada">
                 <i class="fas fa-sliders-h"></i>
             </button>
             <div v-if="showResults && searchResults.length > 0" class="search-results">
@@ -75,7 +75,7 @@
             <button id="perfil" @click="gotoProfile" title="Mi Perfil"></button>
             <button id="anuncio" @click="gotoAnnounce" title="Anuncios"></button>
             <button id="encuesta" @click="gotoEncuesta" title="Encuesta"></button>
-            <button id="search" @click="goToAdvancedSearch" title="Search"></button>
+           
             
             <button id="reportsButtom" @click="gotoAllReports">
                 <div class="contenido-boton">
