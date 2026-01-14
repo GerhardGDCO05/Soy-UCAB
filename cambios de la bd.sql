@@ -166,6 +166,7 @@ CREATE TABLE IF NOT EXISTS soyucab.anuncio_vistas (
 DROP TRIGGER IF EXISTS trg_notificar_comentario ON soyucab.comentario;
 
 -- 2. Recrear la función con manejo de conflictos
+-- Solución: Actualizar la función del trigger para usar el nombre correcto
 CREATE OR REPLACE FUNCTION soyucab.notificar_comentario()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -174,7 +175,7 @@ BEGIN
         BEGIN
             -- Insertar notificación con timestamp único
             INSERT INTO soyucab.notificacion 
-            (email_destino, email_envia, titulo, contenido, tipo_notificacion, estado, prioridad, fecha_creacion)
+            (email_destino, email_envia, titulo, contenido, tipo_notificacion, estado, prioridad, fecha_hora)
             VALUES (
                 NEW.email_creador_publicacion,
                 NEW.email_comentador,
@@ -225,7 +226,7 @@ CREATE TABLE soyucab.opcion_texto (
         ON DELETE CASCADE
 );
 
-
+ 
 
 
 
