@@ -94,7 +94,7 @@
             <div class="stat-icon"><i class="fas fa-users"></i></div>
             <div class="stat-content">
               <h3>Total de egresados</h3>
-              <p class="stat-number">{{ totalEgresados }}</p>
+              <p class="stat-number">{{ totalEgresados -1 }}</p>
             </div>
           </div>
 

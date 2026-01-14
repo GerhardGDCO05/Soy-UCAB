@@ -3142,6 +3142,11 @@ CREATE TABLE IF NOT EXISTS soyucab.evento_ubicacion (
     fecha_creacion TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
     activo BOOLEAN DEFAULT TRUE
 );
+ --Agregar columnas a tabla evento si no existen
+ALTER TABLE soyucab.evento
+ADD COLUMN IF NOT EXISTS id_ubicacion_referencia UUID,
+ADD COLUMN IF NOT EXISTS lugar_fisico VARCHAR(200),
+ADD CONSTRAINT fk_evento_ubicacion_ref FOREIGN KEY (id_ubicacion_referencia) REFERENCES soyucab.evento_ubicacion (id_ubicacion) ON DELETE SET NULL;
 
 ALTER TABLE soyucab.miembro_participa_evento 
 ADD COLUMN IF NOT EXISTS tipo_participacion soyucab.tipo_participacion_evento,
@@ -3207,6 +3212,12 @@ ADD COLUMN IF NOT EXISTS id_ubicacion_referencia UUID,
 ADD COLUMN IF NOT EXISTS lugar_fisico VARCHAR(200),
 ADD CONSTRAINT fk_evento_ubicacion_ref FOREIGN KEY (id_ubicacion_referencia) REFERENCES soyucab.evento_ubicacion (id_ubicacion) ON DELETE SET NULL;
 
+-- LUEGO crear la FK con los nombres CORRECTOS de columnas
+ALTER TABLE soyucab.envia_una 
+ADD CONSTRAINT fk_envia_una_comentario 
+FOREIGN KEY (email_comentador, email_creador_publicacion, fecha_creacion_publicacion, fecha_creacion_comentario) 
+REFERENCES soyucab.comentario(email_comentador, email_creador_publicacion, fecha_creacion_publicacion, fecha_creacion)
+ON UPDATE CASCADE ON DELETE CASCADE;
 
 -- ============================================================================
 -- FUNCIÓN MEJORADA: Obtener detalles completos de eventos
