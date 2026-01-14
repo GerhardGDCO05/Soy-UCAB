@@ -80,7 +80,11 @@ CREATE TYPE soyucab.genero AS ENUM ('M', 'F');
 -- Crear tablas en el schema soyucab
 CREATE TABLE soyucab.miembro (
     email VARCHAR(50) PRIMARY KEY,
+<<<<<<< Updated upstream
     telefono integer,
+=======
+    telefono VARCHAR(20),
+>>>>>>> Stashed changes
     biografia TEXT,
     estado_cuenta soyucab.estado_miembro,
     privacidad_perfil soyucab.privacidad,
