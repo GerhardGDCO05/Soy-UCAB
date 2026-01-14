@@ -100,7 +100,7 @@ export default {
     },
 
     goToPromedios() {
-      this.$router.push('/averages-report');
+      this.$router.push('/reporte-top-promedios');
     },
 
     goToReconocimientos() {

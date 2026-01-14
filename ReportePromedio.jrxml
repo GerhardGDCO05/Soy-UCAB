@@ -1,0 +1,80 @@
+<!-- Created with Jaspersoft Studio version 7.0.3.final using JasperReports Library version 7.0.3-41034ca841d452f3305ba55b9042260aaa1ab5dd  -->
+<jasperReport name="ReportePromedio" language="java" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="802" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="171e48b2-b492-4fcb-a679-03d1ea6ba290">
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="ReportesAdaptadorParaSoyUCAB"/>
+	<query language="SQL"><![CDATA[SELECT
+    p.nombres || ' ' || p.apellidos AS nombre_estudiante,
+    e.carrera_programa AS carrera,
+    e.promedio
+FROM
+    soyucab.estudiante e
+JOIN
+    soyucab.persona p
+  
+    ON e.email_estudiante = p.email_persona
+ORDER BY
+    e.promedio DESC, p.apellidos ASC
+LIMIT 10]]></query>
+	<field name="nombre_estudiante" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="nombre_estudiante"/>
+		<property name="com.jaspersoft.studio.field.label" value="nombre_estudiante"/>
+	</field>
+	<field name="carrera" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="carrera"/>
+		<property name="com.jaspersoft.studio.field.label" value="carrera"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="estudiante"/>
+	</field>
+	<field name="promedio" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="promedio"/>
+		<property name="com.jaspersoft.studio.field.label" value="promedio"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="estudiante"/>
+	</field>
+	<background splitType="Stretch"/>
+	<title height="120" splitType="Stretch">
+		<element kind="staticText" uuid="c24ebeda-1523-46af-8911-2d5bcb84b976" x="100" y="0" width="269" height="63" fontSize="40.0" bold="true">
+			<text><![CDATA[REPORTES]]></text>
+		</element>
+		<element kind="staticText" uuid="72704ef6-77e6-4f6d-b1ba-ec0afa93d8b3" x="142" y="60" width="278" height="30" fontSize="18.0">
+			<text><![CDATA[top promedios de la UCAB]]></text>
+		</element>
+		<element kind="image" uuid="d2b8b9f5-be28-41c5-ad2b-dcc2b0b62f59" x="-11" y="0" width="101" height="120">
+			<expression><![CDATA["C:/Users/danie/Downloads/logoUcabBD.jpg"]]></expression>
+		</element>
+	</title>
+	<columnHeader height="21" splitType="Stretch">
+		<element kind="staticText" uuid="ee1e4231-b47f-4a49-9bad-2b4f24ce2d61" x="197" y="-9" width="160" height="30" fontSize="20.0" hTextAlign="Center">
+			<text><![CDATA[ESTUDIANTE]]></text>
+			<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="8d03dd0f-3d04-4708-ad1b-506aeca51009"/>
+		</element>
+		<element kind="staticText" uuid="180e53da-fc8c-476c-9809-bb286b9a2f3e" x="443" y="-9" width="100" height="30" fontSize="20.0">
+			<text><![CDATA[CARRERA]]></text>
+			<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="66d49762-5fcc-424b-941d-e50d97924db1"/>
+		</element>
+		<element kind="staticText" uuid="f5c82c11-9b6a-4f44-825f-46e897a6e4cd" x="624" y="-10" width="117" height="30" fontSize="20.0">
+			<text><![CDATA[PROMEDIO]]></text>
+			<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="6fc54367-4def-408c-9c02-516ab958a249"/>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="66" splitType="Prevent">
+			<element kind="textField" uuid="09756b57-dac2-46cb-b327-80ab6a3cf8b0" stretchType="ElementGroupHeight" x="220" y="20" width="100" height="30" hTextAlign="Center">
+				<expression><![CDATA[$F{nombre_estudiante}]]></expression>
+				<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="8d03dd0f-3d04-4708-ad1b-506aeca51009"/>
+			</element>
+			<element kind="textField" uuid="e874908d-d2d4-4bda-852a-c9097ff5676b" stretchType="ElementGroupHeight" x="443" y="25" width="100" height="30" hTextAlign="Center">
+				<expression><![CDATA[$F{carrera}]]></expression>
+				<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="66d49762-5fcc-424b-941d-e50d97924db1"/>
+			</element>
+			<element kind="textField" uuid="e4e553c3-a170-4516-a2ca-0e6e2817a160" stretchType="ElementGroupHeight" x="630" y="23" width="100" height="30" hTextAlign="Center">
+				<expression><![CDATA[$F{promedio}]]></expression>
+				<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="6fc54367-4def-408c-9c02-516ab958a249"/>
+			</element>
+			<element kind="rectangle" uuid="52b2f8b6-17c7-470a-b2b1-3ed7c8ecdcfa" x="100" y="65" width="621" height="1" forecolor="rgba(107, 106, 106, 0.42352942)" backcolor="rgba(92, 88, 88, 0.23921569)"/>
+			<element kind="textField" uuid="92ae78b9-03d8-4a02-9d71-edad3e327539" x="110" y="20" width="80" height="40" fontSize="24.0" hTextAlign="Center">
+				<expression><![CDATA[$V{REPORT_COUNT}]]></expression>
+			</element>
+		</band>
+	</detail>
+	<columnFooter height="45" splitType="Stretch"/>
+	<pageFooter height="54" splitType="Stretch"/>
+</jasperReport>
