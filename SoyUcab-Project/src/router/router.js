@@ -1,5 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import usuarioServices from '@/services/usuarioServices' // Importamos el servicio
+import PostView from '@/components/posts.vue'
+import PublicProfile from '@/components/PublicProfile.vue'
+import Encuesta from '@/components/encuesta.vue'
+
 
 const routes = [
   {
@@ -56,37 +60,87 @@ const routes = [
     meta: { requiresAuth: true }
   },
   // ... otros imports
-{
-  path: '/crear-publicacion',
-  name: 'CrearPublicacion',
-  component: () => import('../components/CrearPublicacion.vue')
-},
-// En src/router/router.js
-{
-  path: '/my-feed',
-  name: 'MyFeed',
-  component: () => import('../components/MyFeed.vue') // Verifica que la ruta relativa sea correcta
-},
-{
-  path: '/reporte-top-carreras',
-  name: 'TopCarreras',
-  component: () => import('../components/reportesVue/TopCarreras.vue')
-},
-{
-  path: '/reporte-top-empresas',
-  name: 'TopEmpresas',
-  component: () => import('../components/reportesVue/TopEmpresas.vue')
-},
-{
-  path: '/reporte-top-usuarios',
-  name: 'TopUsuarios',
-  component: () => import('../components/reportesVue/TopUsuarios.vue')
-},
-{
-  path: '/notifications',
-  name: 'Notifications',
-  component: () => import('../components/NotificationsView.vue')
-}
+  {
+    path: '/crear-publicacion',
+    name: 'CrearPublicacion',
+    component: () => import('../components/CrearPublicacion.vue')
+  },
+  // En src/router/router.js
+  {
+    path: '/my-feed',
+    name: 'MyFeed',
+    component: () => import('../components/MyFeed.vue') // Verifica que la ruta relativa sea correcta
+  },
+  {
+    path: '/reporte-top-carreras',
+    name: 'TopCarreras',
+    component: () => import('../components/reportesVue/TopCarreras.vue')
+  },
+  {
+    path: '/reporte-top-empresas',
+    name: 'TopEmpresas',
+    component: () => import('../components/reportesVue/TopEmpresas.vue')
+  },
+  {
+    path: '/reporte-top-usuarios',
+    name: 'TopUsuarios',
+    component: () => import('../components/reportesVue/TopUsuarios.vue')
+  },
+  {
+    path: '/notifications',
+    name: 'Notifications',
+    component: () => import('../components/NotificationsView.vue')
+  },
+  {
+    path: '/announces',
+    name: 'Announces',
+    component: () => import('../components/Announces.vue'),
+  },
+
+  {
+    path: '/post/:email/:fecha',
+    name: 'PostView',
+    component: PostView
+  },
+  {
+    path: '/advanced-search',
+    name: 'Buscar',
+    component: () => import('../components/AdvancedSearch.vue'),
+  },
+  {
+    path: '/profile/:email',  // ← Ruta para perfiles públicos
+    name: 'PublicProfile',
+    component: PublicProfile,
+    props: true,  // Importante: pasa el parámetro :email como prop
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/semaforo',
+    name: 'ReporteSemaforo',
+    component: () => import('../components/reportesVue/SemaforoPagos.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/events-report',
+    name: 'ReporteEventos',
+    component: () => import('../components/reportesVue/GestionEventos.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/reporte-top-promedios',
+    name: 'ReportePromedios',
+    component: () => import('../components/reportesVue/TopPromediosFacultad.vue'),
+    meta: { requiresAuth: true }
+  },
+
+  {
+    path: '/encuesta',
+    name: 'Encuesta',
+    component: Encuesta,
+    meta: { requiresAuth: true }
+  },
+
+
 ]
 
 const router = createRouter({
@@ -103,11 +157,11 @@ router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth && !isLogged) {
     console.warn('Acceso denegado: Se requiere inicio de sesión');
     next('/principalview'); // Redirigir al login/landing
-  } 
+  }
   // Si el usuario ya está logueado e intenta ir al login/landing
   else if (to.path === '/principalview' && isLogged) {
     next('/home'); // Redirigir al home
-  } 
+  }
   else {
     next(); // Permitir el paso
   }

@@ -209,76 +209,16 @@
                 </div>
             </div>
 
-            <!-- CREAR PUBLICACIÓN -->
-            <div class="create-post-wrapper">
-                <h2 style="padding: 1rem 1.5rem 0 1.5rem; margin:0; font-size: 1.2rem;">Publicaciones</h2>
-                <div class="create-post" v-if="isLoggedIn" style="margin-bottom:0; box-shadow:none;">
-                  <div class="create-post-header">
-                    <div class="post-avatar">
-                      <i class="fas fa-user-circle"></i>
-                    </div>
-                    <textarea v-model="newPostContent" placeholder="¿Qué estás pensando?" rows="3" class="post-input"></textarea>
-                  </div>
-                  <div class="create-post-actions">
-                    <button class="post-submit-btn" @click="createPost" :disabled="!newPostContent.trim() || posting">
-                      <i class="fas fa-paper-plane"></i>
-                      {{ posting ? 'Publicando...' : 'Publicar' }}
-                    </button>
-                  </div>
-                </div>
-            </div>
-        </div>
-
-        <div v-if="loadingPosts" class="loading-posts">
-          <i class="fas fa-spinner fa-spin"></i> Cargando publicaciones...
-        </div>
-
-        <div v-else-if="userPosts.length === 0" class="no-posts">
-          <p>No hay publicaciones aún</p>
-          <button class="btn-create-post" @click="focusPostInput">
-            <i class="fas fa-plus"></i> Crear primera publicación
-          </button>
-        </div>
-
-        <div v-else class="posts-list">
-          <div v-for="post in userPosts" :key="post.id" class="post-card">
-            <div class="post-header">
-              <div class="post-avatar">
-                <i class="fas fa-user-circle"></i>
-              </div>
-              <div class="post-author">
-                <div class="author-name">{{ userFullName }}</div>
-                <div class="post-time">{{ formatPostTime(post.created_at) }}</div>
-              </div>
-              <div class="post-actions-menu" v-if="post.is_owner">
-                <button class="action-btn" @click="editPost(post)">
-                  <i class="fas fa-edit"></i>
+             <!-- BOTÓN PARA VER FEED -->
+            <div class="feed-action-wrapper" style="margin-top: 1rem; text-align: center;">
+                <button @click="gotoFeed" class="btn-feed" title="Ver todos los posts">
+                    <i class="fas fa-stream"></i>
+                    <span>Ver Feed de Posts</span>
                 </button>
-                <button class="action-btn delete-btn" @click="deletePost(post.id)">
-                  <i class="fas fa-trash"></i>
-                </button>
-              </div>
             </div>
-            <div class="post-content">
-              <p>{{ post.content }}</p>
-              <div v-if="post.media_url" class="post-media">
-                <img :src="post.media_url" alt="Media" class="post-image">
-              </div>
-            </div>
-            <div class="post-stats">
-              <span class="stat"><i class="fas fa-heart"></i> {{ post.likes_count || 0 }}</span>
-              <span class="stat"><i class="fas fa-comment"></i> {{ post.comments_count || 0 }}</span>
-            </div>
-            <div class="post-actions">
-              <button class="post-action" :class="{ 'active': post.liked_by_user }" @click="toggleLike(post)">
-                <i class="fas fa-heart"></i> Me gusta
-              </button>
-              <button class="post-action" @click="showComments(post)">
-                <i class="fas fa-comment"></i> Comentar
-              </button>
-            </div>
-          </div>
         </div>
+
+        
       </div>
     </div>
 
@@ -736,19 +676,52 @@ export default {
         alert("El nombre del grupo es obligatorio");
         return;
       }
+      
       this.creatingGroup = true;
       try {
-        const resp = await api.createGroup(this.newGroup);
+        // Obtener el email directamente desde this.userEmail que ya tienes
+        if (!this.userEmail) {
+          alert("No se pudo obtener el email del usuario. Por favor, inicia sesión nuevamente.");
+          this.creatingGroup = false;
+          return;
+        }
+        
+        console.log('Email del creador (desde this.userEmail):', this.userEmail);
+        
+        // Crear el objeto con todos los campos necesarios
+        const groupData = {
+          nombre: this.newGroup.nombre.trim(),
+          descripcion: this.newGroup.descripcion || '',
+          categoria: this.newGroup.categoria || 'academico',
+          privacidad: this.newGroup.privacidad || 'publico',
+          requisitos_ingreso: this.newGroup.requisitos_ingreso || '',
+          // Incluir el email aquí para que usuarioServices lo use
+          userEmail: this.userEmail  // ¡NUEVO: enviar el email directamente!
+        };
+        
+        console.log('Datos completos enviando al backend:', groupData);
+        
+        // Llamar al servicio
+        const resp = await api.createGroup(groupData);
+        
         if (resp.success) {
           this.showCreateGroupForm = false;
-          this.newGroup = { nombre: '', descripcion: '', categoria: 'academico', privacidad: 'publico' };
+          // Resetear formulario
+          this.newGroup = { 
+            nombre: '', 
+            descripcion: '', 
+            categoria: 'academico', 
+            privacidad: 'publico',
+            requisitos_ingreso: ''
+          };
           await this.loadMyGroups();
           alert("¡Grupo creado con éxito!");
         } else {
           alert("Error al crear grupo: " + (resp.error || "Desconocido"));
         }
       } catch (e) {
-        console.error(e);
+        console.error('Error completo:', e);
+        alert("Error: " + (e.message || "Error de conexión"));
       } finally {
         this.creatingGroup = false;
       }
@@ -909,7 +882,12 @@ export default {
         } finally {
             this.myGroupsLoading = false;
         }
-    }
+    },
+    gotoFeed() {
+            if (this.$route.path !== '/my-feed') {
+                this.$router.push('/my-feed');
+            }
+    },
   }
 }
 </script>

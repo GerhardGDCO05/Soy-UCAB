@@ -3,11 +3,11 @@
     <headerBar />
 
     <router-link to="/notifications" class="notif-link">
-  <div style="position: relative; display: inline-block;">
-    <i class="fas fa-bell"></i>
-    <span v-if="unreadCount > 0" class="notif-badge">{{ unreadCount }}</span>
-  </div>
-</router-link>
+      <div style="position: relative; display: inline-block;">
+        <i class="fas fa-bell"></i>
+        <span v-if="unreadCount > 0" class="notif-badge">{{ unreadCount }}</span>
+      </div>
+    </router-link>
     
     <div class="main-layout">
       <aside class="sidebar-stats panel">
@@ -22,13 +22,14 @@
             <span class="label">Publicaciones</span>
           </div>
         </div>
+        
       </aside>
 
       <main class="feed-content">
         <div class="create-post panel">
           <textarea 
             v-model="newPost.caption" 
-            placeholder="¿Qué estás pensando, Mike?"
+            placeholder="¿Qué estás pensando?"
             rows="3"
           ></textarea>
           
@@ -60,11 +61,15 @@
           </div>
         </div>
 
-        <div v-if="posts.length === 0" class="no-posts panel">
+        <div v-if="loadingPosts" class="loading-msg panel">
+          <i class="fas fa-spinner fa-spin"></i> Cargando publicaciones...
+        </div>
+
+        <div v-else-if="posts.length === 0" class="no-posts panel">
           Aún no hay publicaciones. ¡Sé el primero!
         </div>
 
-        <div v-for="post in posts" :key="post.fecha_publicacion" class="post-card panel">
+        <div v-else v-for="post in posts" :key="post.email_publicador + '-' + post.fecha_publicacion" class="post-card panel">
           <div class="post-header">
             <div class="avatar-small"><i class="fas fa-user-circle"></i></div>
             <div class="user-meta">
@@ -83,15 +88,21 @@
           </div>
           
           <div class="post-body">
-            <p>{{ post.caption }}</p>
-            <img v-if="post.tipo_contenido === 'imagen'" :src="post.descripcion_publicacion" class="post-media" />
-            <video v-if="post.tipo_contenido === 'video'" controls class="post-media">
-              <source :src="post.descripcion_publicacion" type="video/mp4">
-            </video>
-            <a v-if="post.tipo_contenido === 'enlace'" :href="post.descripcion_publicacion" target="_blank" class="post-link">
-              Ver enlace externo
-            </a>
-          </div>
+  <p>{{ post.caption }}</p>
+  
+  <!-- Si tiene contenido multimedia/enlace, mostrar como link -->
+  <div class="post-body">
+  <p></p>
+  
+  <!-- Si tiene contenido multimedia/enlace, mostrar como link -->
+  <div v-if="post.descripcion_publicacion" class="post-link-container">
+    <i class="fas fa-link"></i>
+    <a :href="formatUrl(post.descripcion_publicacion)" target="_blank" class="post-link">
+      {{ post.descripcion_publicacion }}
+    </a>
+  </div>
+</div>
+</div>
 
           <div class="post-footer">
             <button 
@@ -107,7 +118,9 @@
               <i class="far fa-comment"></i> {{ post.showComments ? 'Ocultar' : 'Comentar' }}
             </button>
             
-            <button class="action-btn"><i class="far fa-share-square"></i> Compartir</button>
+            <button class="action-btn" @click="sharePost(post)">
+              <i class="far fa-share-square"></i> Compartir
+            </button>
           </div>
 
           <div v-if="post.showComments" class="comments-section">
@@ -120,17 +133,10 @@
               <button @click="submitComment(post)">Enviar</button>
             </div>
 
-            <div class="user-meta">
-                <strong>@{{ post.nombre_usuario }}</strong>
-                <code style="font-size: 10px; color: red;"> 
-                    Post: {{ post.email_publicador }} | Yo: {{ userEmail }} 
-                </code>
-                <small>{{ formatDate(post.fecha_publicacion) }}</small>
-            </div>
-
             <div class="comments-display" v-if="post.comments && post.comments.length > 0">
               <div v-for="comment in post.comments" :key="comment.fecha_creacion" class="single-comment">
                 <strong>@{{ comment.nombre_usuario }}:</strong> <span>{{ comment.contenido }}</span>
+                <small class="comment-time">{{ formatDate(comment.fecha_creacion) }}</small>
               </div>
             </div>
             <div v-else class="no-comments-msg">No hay comentarios aún.</div>
@@ -138,12 +144,91 @@
         </div>
       </main>
     </div>
+
+    <!-- Modal para compartir -->
+    <div v-if="showShareModal" class="modal-overlay" @click.self="showShareModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Compartir publicación</h3>
+          <button @click="showShareModal = false" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="share-text">Comparte esta publicación de @{{ sharePostData?.nombre_usuario }}</p>
+          
+          <!-- Opción 1: Copiar enlace -->
+          <div class="share-section">
+            <h4 class="share-section-title">📎 Copiar enlace</h4>
+            <button @click="copyPostLink" class="share-btn">
+              <i class="fas fa-link"></i> Copiar enlace
+            </button>
+            <div v-if="linkCopied" class="success-msg">
+              ✓ Enlace copiado al portapapeles
+            </div>
+          </div>
+
+          <!-- Opción 2: Compartir con usuarios -->
+          <div class="share-section">
+            <h4 class="share-section-title">👥 Compartir con usuarios</h4>
+            
+            <!-- Buscador de usuarios -->
+            <div class="user-search-container">
+              <input 
+                v-model="shareSearchQuery" 
+                @input="searchUsersToShare"
+                placeholder="Buscar usuarios por nombre o email..."
+                class="user-search-input"
+              />
+              
+              <!-- Resultados de búsqueda -->
+              <div v-if="shareSearchResults.length > 0" class="search-results">
+                <div 
+                  v-for="user in shareSearchResults" 
+                  :key="user.email"
+                  @click="selectUserToShare(user)"
+                  class="search-result-item"
+                >
+                  <i class="fas fa-user-circle"></i>
+                  <div class="user-info">
+                    <strong>@{{ user.nombre_usuario }}</strong>
+                    <small>{{ user.email }}</small>
+                  </div>
+
+                  
+                </div>
+              </div>
+            </div>
+
+            <!-- Usuarios seleccionados -->
+            <div v-if="shareSelectedUsers.length > 0" class="selected-users">
+              <div 
+                v-for="user in shareSelectedUsers" 
+                :key="user.email"
+                class="selected-user-chip"
+              >
+                <span>@{{ user.nombre_usuario }}</span>
+                <button @click="removeUserFromShare(user)" class="remove-chip-btn">&times;</button>
+              </div>
+            </div>
+
+            <button 
+              @click="shareViaNotification" 
+              class="share-btn"
+              :disabled="shareSelectedUsers.length === 0"
+            >
+              <i class="fas fa-paper-plane"></i> 
+              Enviar a {{ shareSelectedUsers.length || 0 }} usuario(s)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
 import headerBar from '@/components/header.vue'
 import axios from 'axios'
+import '@/assets/feed.css';
 
 export default {
   name: 'MyFeed',
@@ -153,23 +238,40 @@ export default {
       posts: [],
       postCount: 0,
       loading: false,
+      loadingPosts: false,
       userEmail: '',
-      userName: 'Mike W',
-      userHandle: 'mike89',
+      userName: '',
+      userHandle: '',
       newPost: {
         caption: '',
         tipo_contenido: 'texto',
         descripcion_publicacion: '',
         configuracion_privacidad: 'publico'
       },
-      showNotifs: false,      // Controla si el "Inbox" está abierto
-    notifications: [],      // Aquí se guardarán las notifs que traigas del backend
-    unreadCount: 0          // El número para el puntito rojo
+      unreadCount: 0,
+      showShareModal: false,
+      sharePostData: null,
+      linkCopied: false,
+      followingUsers: [],
+      shareSelectedUsers: [],
+      shareSearchQuery: '',
+      shareSearchResults: []
     }
   },
   async mounted() {
     this.setupUser();
+    // Carga con manejo de errores
+    try {
+      await this.loadFollowing();
+    } catch (e) {
+      console.log("No se pudieron cargar seguidos, continuando...");
+    }
     await this.loadAll();
+    try {
+      await this.fetchNotifications();
+    } catch (e) {
+      console.log("No se pudieron cargar notificaciones");
+    }
   },
   methods: {
     setupUser() {
@@ -177,277 +279,356 @@ export default {
       if (stored) {
         const userObj = JSON.parse(stored);
         this.userEmail = userObj.email;
-        this.userName = `${userObj.nombres || 'Mike'} ${userObj.apellidos || 'W'}`;
-        this.userHandle = userObj.nombre_usuario || 'mike89';
+        this.userName = `${userObj.nombres || ''} ${userObj.apellidos || ''}`.trim() || 'Usuario';
+        this.userHandle = userObj.nombre_usuario || 'usuario';
       }
     },
-    // MyFeed.vue -> loadAll
+
+     formatUrl(url) {
+    if (!url) return '';
+    // Si ya tiene http:// o https://, dejarlo como está
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    // Si no, agregar https://
+    return 'https://' + url;
+  },
+
+    formatPostgresDate(date) {
+      if (!date) return null;
+      // Si es un objeto Date, convertirlo
+      if (date instanceof Date) {
+        return date.toISOString().slice(0, 19).replace('T', ' ');
+      }
+      // Si ya es string en formato ISO, convertirlo
+      if (typeof date === 'string' && date.includes('T')) {
+        const d = new Date(date);
+        return d.toISOString().slice(0, 19).replace('T', ' ');
+      }
+      // Si ya está en formato correcto, devolverlo tal cual
+      return date;
+    },
+
+    async loadFollowing() {
+      try {
+        const res = await axios.get(`http://localhost:3000/api/relations/${this.userEmail}?type=sent`);
+        if (res.data.success) {
+          this.followingUsers = res.data.data
+            .filter(r => r.estado === 'aceptada')
+            .map(r => r.email_otro);
+        }
+      } catch (e) {
+        console.error("Error cargando seguidos:", e);
+        this.followingUsers = [];
+      }
+    },
+
     async loadAll() {
-    try {
+      this.loadingPosts = true;
+      try {
         const resPosts = await axios.get('http://localhost:3000/api/posts');
         if (resPosts.data.success) {
-        this.posts = resPosts.data.data.map(p => ({
+          let allPosts = resPosts.data.data;
+
+          // Filtrar posts según privacidad
+          const filteredPosts = allPosts.filter(p => {
+            if (p.configuracion_privacidad === 'publico') return true;
+            if (p.configuracion_privacidad === 'privado') {
+              return p.email_publicador === this.userEmail || 
+                     this.followingUsers.includes(p.email_publicador);
+            }
+            return true;
+          });
+
+          // Verificar likes para cada post
+          for (let post of filteredPosts) {
+            try {
+              const resLike = await axios.get(
+                `http://localhost:3000/api/interactions/check-like`,
+                {
+                  params: {
+                    email_miembro: this.userEmail,
+                    email_publicador: post.email_publicador,
+                    fecha_publicacion: post.fecha_publicacion
+                  }
+                }
+              );
+              post.user_has_liked = resLike.data.hasLiked || false;
+            } catch (e) {
+              post.user_has_liked = false;
+            }
+          }
+
+          this.posts = filteredPosts.map(p => ({
             ...p,
             showComments: false,
             comments: [],
             newCommentText: '',
             likes_count: parseInt(p.likes_count) || 0
-        }));
+          }));
         }
 
-        // VERIFICACIÓN CLAVE:
         if (this.userEmail) {
-        console.log("Cargando contador para:", this.userEmail);
-        const resCount = await axios.get(`http://localhost:3000/api/posts/count/${this.userEmail}`);
-        if (resCount.data.success) {
+          const resCount = await axios.get(`http://localhost:3000/api/posts/count/${this.userEmail}`);
+          if (resCount.data.success) {
             this.postCount = resCount.data.count;
-        }
-        } else {
-        console.warn("No hay email de usuario para contar publicaciones");
-        }
-    } catch (e) {
-        console.error("Error cargando datos:", e);
-    }
-    },
-    async handleLike(post) {
-    try {
-        // Limpieza de fecha para que coincida con el timestamp(0) de la BD
-        const fechaLimpia = post.fecha_publicacion
-        .replace('T', ' ')
-        .replace(/\..+/, '')
-        .replace('Z', '');
-
-        const res = await axios.post('http://localhost:3000/api/interactions/like', {
-        email_miembro: this.userEmail, // Mike
-        email_publicador: post.email_publicador,
-        fecha_publicacion: fechaLimpia 
-        });
-
-        if (res.data.success) {
-        if (res.data.action === 'added') {
-            post.likes_count = (parseInt(post.likes_count) || 0) + 1;
-            post.user_has_liked = true;
-        } else {
-            post.likes_count = Math.max(0, (parseInt(post.likes_count) || 0) - 1);
-            post.user_has_liked = false;
-        }
-        }
-    } catch (e) {
-        console.error("Error en like:", e.response?.data || e.message);
-    }
-    },
-    async toggleComments(post) {
-      post.showComments = !post.showComments;
-      if (post.showComments) {
-        await this.fetchComments(post);
-      }
-    },
-    async fetchComments(post) {
-      try {
-        const res = await axios.get(`http://localhost:3000/api/posts/comments`, {
-          params: {
-            email_publicador: post.email_publicador,
-            fecha_publicacion: post.fecha_publicacion
           }
-        });
-        if (res.data.success) {
-          post.comments = res.data.data;
         }
       } catch (e) {
-        console.error("Error cargando comentarios", e);
+        console.error("Error cargando datos:", e);
+        alert("No se pudo conectar al servidor. Asegúrate de que el backend esté corriendo.");
+      } finally {
+        this.loadingPosts = false;
       }
     },
-    async createPost(req, res) {
-        try {
-            const { email_publicador, caption, tipo_contenido, configuracion_privacidad, descripcion_publicacion } = req.body;
-            
-            const result = await db.query(
-                `INSERT INTO soyucab.publicacion 
-                (caption, tipo_contenido, descripcion_publicacion, configuracion_privacidad, email_publicador, fecha_publicacion)
-                VALUES ($1, $2, $3, $4, $5, date_trunc('second', NOW())) RETURNING *`, 
-                [caption, tipo_contenido, descripcion_publicacion, configuracion_privacidad, email_publicador]
-            );
-            res.status(201).json({ success: true, data: result.rows[0] });
-        } catch (error) {
-            console.error("Error en createPost:", error);
-            res.status(500).json({ success: false, error: 'Error al crear post' });
+
+    async handleLike(post) {
+      try {
+        // Usar la fecha exactamente como viene de la BD
+        const fechaPost = post.fecha_publicacion;
+        
+        console.log("💙 Intentando like con fecha:", fechaPost);
+        
+        const res = await axios.post('http://localhost:3000/api/interactions/like', {
+          email_miembro_gusta: this.userEmail, 
+          email_publicador_publicacion: post.email_publicador, 
+          fecha_publicacion_publicacion: fechaPost
+        });
+
+        if (res.data.success) {
+          if (res.data.action === 'added') {
+            post.likes_count = (parseInt(post.likes_count) || 0) + 1;
+            post.user_has_liked = true;
+          } else {
+            post.likes_count = Math.max(0, (parseInt(post.likes_count) || 0) - 1);
+            post.user_has_liked = false;
+          }
         }
+      } catch (error) {
+        console.error("ERROR AL DAR LIKE:", error.response?.data || error);
+        if (error.response?.data?.debug) {
+          console.log("🔍 Debug info:", error.response.data.debug);
+        }
+        alert("Error al procesar el like. Revisa la consola para más detalles.");
+      }
     },
-    async submitComment(post) {
-        if (!post.newCommentText.trim()) return;
+
+    async toggleComments(post) {
+      post.showComments = !post.showComments;
+      
+      if (post.showComments && post.comments.length === 0) {
         try {
-            // Limpiamos la fecha para que sea un string plano sin Timezone
-            // Ejemplo: '2026-01-04T19:52:55.000Z' -> '2026-01-04 19:52:55'
-            const fechaLimpia = post.fecha_publicacion.replace('T', ' ').replace(/\..+/, '').replace('Z', '');
-
-            const payload = {
-                email_comentador: this.userEmail,
-                email_creador_publicacion: post.email_publicador,
-                fecha_creacion_publicacion: fechaLimpia, 
-                contenido: post.newCommentText
-            };
-
-            console.log("Payload enviado (Limpio):", payload);
-
-            const res = await axios.post('http://localhost:3000/api/interactions/comment', payload);
-            if (res.data.success) {
-                post.newCommentText = '';
-                await this.fetchComments(post); 
+          const res = await axios.get(
+            `http://localhost:3000/api/posts/comments`,
+            {
+              params: {
+                email_publicador: post.email_publicador,
+                fecha_publicacion: post.fecha_publicacion
+              }
             }
+          );
+          if (res.data.success) {
+            post.comments = res.data.data;
+          }
         } catch (e) {
-            console.error("Detalle error:", e.response?.data);
-            alert("Error de coincidencia: Revisa que la fecha sea idéntica a la de la BD.");
+          console.error("Error cargando comentarios:", e);
         }
+      }
     },
+
+async submitComment(post) {
+  if (!post.newCommentText?.trim()) return;
+
+  try {
+    // Normalizar la fecha al formato esperado por el backend
+    let fechaFormateada = post.fecha_publicacion;
+    
+    // Si la fecha tiene milisegundos o zona horaria, limpiarla
+    if (typeof fechaFormateada === 'string') {
+      // Remover milisegundos y zona horaria si existen
+      fechaFormateada = fechaFormateada.split('.')[0]; // Quita milisegundos
+      fechaFormateada = fechaFormateada.replace('Z', ''); // Quita la Z de UTC
+      fechaFormateada = fechaFormateada.replace('T', ' '); // Cambia T por espacio
+    }
+    
+    console.log('📅 Fecha original:', post.fecha_publicacion);
+    console.log('📅 Fecha formateada:', fechaFormateada);
+
+    const payload = {
+      email_comentador: this.userEmail,
+      email_creador_publicacion: post.email_publicador,
+      fecha_creacion_publicacion: fechaFormateada,
+      contenido: post.newCommentText
+    };
+
+    const response = await axios.post('http://localhost:3000/api/interactions/comment', payload);
+    
+    if (response.data.success) {
+      const nuevoComentario = {
+        ...response.data.data,
+        nombre_usuario: this.userHandle
+      };
+
+      if (!post.comments) post.comments = [];
+      post.comments.push(nuevoComentario);
+      post.newCommentText = '';
+    }
+  } catch (e) {
+    console.error("Error al comentar:", e.response?.data || e);
+    alert("Error al enviar comentario. Verifica la consola para más detalles.");
+  }
+},
+
     async submitPost() {
       this.loading = true;
       try {
         const payload = { ...this.newPost, email_publicador: this.userEmail };
         await axios.post('http://localhost:3000/api/posts', payload);
-        this.newPost.caption = '';
+        this.newPost = {
+          caption: '',
+          tipo_contenido: 'texto',
+          descripcion_publicacion: '',
+          configuracion_privacidad: 'publico'
+        };
         await this.loadAll();
       } catch (e) {
         alert("Error al publicar");
+        console.error(e);
       } finally {
         this.loading = false;
       }
     },
-    formatDate(date) {
-      return date ? new Date(date).toLocaleString() : 'Ahora';
-    },
+
     async confirmDelete(post) {
-        if (confirm("¿Estás seguro de que quieres eliminar esta publicación? Esta acción no se puede deshacer.")) {
-            try {
-            // Enviamos el email del usuario logueado en el body para validar en el back
-            const res = await axios.delete(`http://localhost:3000/api/posts/${post.email_publicador}/${post.fecha_publicacion}`, {
-                data: { email_solicitante: this.userEmail }
-            });
-
-            if (res.data.success) {
-                // Recargamos el feed y el contador
-                await this.loadAll(); 
-            }
-            } catch (e) {
-            console.error("Error eliminando post:", e);
-            alert("No se pudo eliminar la publicación.");
-            }
-        }
-    },
-
-    toggleNotifs() {
-        this.showNotifs = !this.showNotifs;
-        if (this.showNotifs) {
-        this.fetchNotifications(); // Trae las notifs cuando se abre el panel
-        }
-    },
-  
-    async fetchNotifications() {
+      if (confirm("¿Estás seguro de que quieres eliminar esta publicación?")) {
         try {
+          const res = await axios.delete(
+            `http://localhost:3000/api/posts/${post.email_publicador}/${encodeURIComponent(post.fecha_publicacion)}`, 
+            {
+              data: { email_solicitante: this.userEmail }
+            }
+          );
+
+          if (res.data.success) {
+            alert("Publicación eliminada");
+            await this.loadAll(); 
+          }
+        } catch (e) {
+          console.error("Error al eliminar:", e.response?.data || e);
+          if (e.response?.data?.debug) {
+            console.log("🔍 Debug info:", e.response.data.debug);
+          }
+          alert(e.response?.data?.error || "Error al eliminar");
+        }
+      }
+    },
+
+    sharePost(post) {
+      this.sharePostData = post;
+      this.showShareModal = true;
+      this.linkCopied = false;
+      this.shareSelectedUsers = [];
+      this.shareSearchQuery = '';
+      this.shareSearchResults = [];
+    },
+
+    copyPostLink() {
+      const postUrl = `${window.location.origin}/post/${this.sharePostData.email_publicador}/${encodeURIComponent(this.sharePostData.fecha_publicacion)}`;
+      navigator.clipboard.writeText(postUrl).then(() => {
+        this.linkCopied = true;
+        setTimeout(() => {
+          this.linkCopied = false;
+        }, 3000);
+      });
+    },
+
+    async searchUsersToShare() {
+      if (!this.shareSearchQuery || this.shareSearchQuery.length < 2) {
+        this.shareSearchResults = [];
+        return;
+      }
+
+      try {
+        // Asumiendo que tienes un endpoint para buscar usuarios
+        const res = await axios.get(`http://localhost:3000/api/members/search?q=${this.shareSearchQuery}`);
+        if (res.data.success) {
+          // Filtrar el usuario actual y los ya seleccionados
+          this.shareSearchResults = res.data.data
+            .filter(u => u.email !== this.userEmail)
+            .filter(u => !this.shareSelectedUsers.find(s => s.email === u.email))
+            .slice(0, 5);
+        }
+      } catch (e) {
+        console.error("Error buscando usuarios:", e);
+      }
+    },
+
+    selectUserToShare(user) {
+      if (!this.shareSelectedUsers.find(u => u.email === user.email)) {
+        this.shareSelectedUsers.push(user);
+      }
+      this.shareSearchQuery = '';
+      this.shareSearchResults = [];
+    },
+
+    removeUserFromShare(user) {
+      this.shareSelectedUsers = this.shareSelectedUsers.filter(u => u.email !== user.email);
+    },
+
+    async shareViaNotification() {
+      if (this.shareSelectedUsers.length === 0) {
+        alert("Selecciona al menos un usuario para compartir");
+        return;
+      }
+
+      try {
+        const payload = {
+          email_publicador: this.sharePostData.email_publicador,
+          fecha_publicacion: this.sharePostData.fecha_publicacion,
+          compartido_por: this.userEmail,
+          destinatarios: this.shareSelectedUsers.map(u => u.email)
+        };
+
+        const res = await axios.post('http://localhost:3000/api/posts/share', payload);
+        
+        if (res.data.success) {
+          alert(`Post compartido con ${this.shareSelectedUsers.length} usuario(s)`);
+          this.showShareModal = false;
+          this.shareSelectedUsers = [];
+        }
+      } catch (e) {
+        console.error("Error compartiendo:", e);
+        alert("Error al compartir el post");
+      }
+    },
+
+    async fetchNotifications() {
+      try {
         const res = await axios.get(`http://localhost:3000/api/interactions/notifications/${this.userEmail}`);
         if (res.data.success) {
-            this.notifications = res.data.data;
-            this.unreadCount = this.notifications.filter(n => n.estado === 'pendiente').length;
+          this.unreadCount = res.data.data.filter(n => n.estado === 'pendiente').length;
         }
-        } catch (e) {
+      } catch (e) {
         console.error("Error al cargar notificaciones:", e);
-        }
+      }
     },
+
+    formatDate(date) {
+      if (!date) return 'Ahora';
+      const d = new Date(date);
+      const now = new Date();
+      const diff = now - d;
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+
+      if (minutes < 1) return 'Ahora';
+      if (minutes < 60) return `${minutes}m`;
+      if (hours < 24) return `${hours}h`;
+      if (days < 7) return `${days}d`;
+      return d.toLocaleDateString();
+    }
   }
 }
 </script>
 
-<style scoped>
-/* ESTILOS EXISTENTES */
-.feed-container { background: #f0f2f5; min-height: 100vh; padding-top: 20px; }
-.main-layout { display: flex; gap: 20px; max-width: 1000px; margin: 0 auto; padding: 0 15px; }
-.sidebar-stats { flex: 1; height: fit-content; text-align: center; position: sticky; top: 80px; }
-.feed-content { flex: 2; }
-.panel { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; padding: 15px; }
-
-/* ESTILO PARA EL CORAZÓN ROJO */
-.liked-active {
-  color: #e0245e !important;
-}
-
-
-/* Agrégalo al final de tu <style> */
-.post-header {
-  position: relative !important; /* Permite posicionar el botón */
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  padding-right: 40px; /* Deja espacio para la papelera */
-}
-
-.btn-delete-post {
-  position: absolute !important;
-  right: 10px !important;
-  top: 10px !important;
-  background: #ff4444 !important; /* Fondo rojo temporal para verlo */
-  color: white !important;
-  border: none;
-  border-radius: 4px;
-  padding: 5px 8px;
-  cursor: pointer;
-  z-index: 999;
-}
-
-.btn-delete-post i {
-  font-size: 16px;
-}
-.avatar-large { font-size: 60px; color: #ccd6dd; margin-bottom: 10px; }
-.avatar-small { font-size: 40px; color: #ccd6dd; }
-.number { display: block; font-size: 24px; font-weight: bold; color: #1da1f2; }
-.label { font-size: 12px; color: #657786; text-transform: uppercase; }
-
-.create-post textarea { width: 100%; border: 1px solid #e1e8ed; border-radius: 8px; padding: 12px; resize: none; margin-bottom: 10px; }
-.post-actions-row { display: flex; justify-content: space-between; align-items: center; }
-.btn-publish { background: #1da1f2; color: white; border: none; padding: 8px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; }
-
-.post-header { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
-.user-meta { display: flex; flex-direction: column; }
-.post-media { width: 100%; border-radius: 8px; margin-top: 10px; }
-
-.post-footer { display: flex; justify-content: space-around; border-top: 1px solid #eee; margin-top: 10px; padding-top: 10px; }
-.action-btn { background: none; border: none; color: #657786; cursor: pointer; font-weight: bold; font-size: 14px; transition: color 0.2s; }
-.action-btn:hover { color: #1da1f2; }
-
-.comments-section { margin-top: 15px; padding-top: 10px; border-top: 1px solid #f0f2f5; }
-.comment-input-area { display: flex; gap: 10px; margin-bottom: 15px; }
-.comment-input-area input { flex: 1; border: 1px solid #ddd; border-radius: 20px; padding: 8px 15px; outline: none; }
-.comment-input-area button { background: #1da1f2; color: white; border: none; padding: 5px 15px; border-radius: 15px; cursor: pointer; }
-
-.comments-display { background: #f8f9fa; padding: 10px; border-radius: 8px; font-size: 13px; }
-.single-comment { margin-bottom: 8px; border-bottom: 1px solid #edf0f2; padding-bottom: 4px; }
-.single-comment strong { color: #1da1f2; }
-
-
-
-/* Estilo para que el panel flote correctamente */
-.notif-section {
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-}
-
-.notif-icon-container {
-    position: absolute;
-    right: 20px;
-    top: 15px; /* Ajusta esto para que quede alineado con tu logo/texto del header */
-}
-
-.notif-dropdown {
-    display: block !important; /* Asegura que el v-if funcione */
-    position: absolute;
-    right: 0;
-    top: 40px;
-    width: 300px;
-    background: white;
-    border: 1px solid #ddd;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    border-radius: 8px;
-    max-height: 400px;
-    overflow-y: auto;
-    z-index: 9999; /* Esto garantiza que flote sobre el feed */
-}
-</style>

@@ -35,4 +35,9 @@ router.get('/comments', postController.getCommentsByPost);
 // Cambia tu ruta de POST para que use el middleware de upload
 router.post('/', upload.single('file'), postController.createPost);
 
+
+router.get('/single/:email/:fecha', postController.getSinglePost);
+router.post('/share', postController.sharePost);
+router.get('/profile/:email', postController.getPostsByEmailForViewer)
+
 module.exports = router;

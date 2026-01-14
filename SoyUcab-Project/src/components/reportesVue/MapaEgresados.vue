@@ -527,28 +527,54 @@ const loadEgresados = async () => {
 const initMap = async () => {
   try {
     error.value = null;
+    console.log('=== INICIANDO MAPA ===');
+    
+    if (!mapContainer.value) {
+      error.value = 'Contenedor del mapa no encontrado';
+      return;
+    }
+    
     L = await import('leaflet');
     
-    // Solución para iconos Leaflet
+    // Iconos ya corregidos
     delete L.Icon.Default.prototype._getIconUrl;
     L.Icon.Default.mergeOptions({
-      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
     });
 
+    // Crear mapa
     map = L.map(mapContainer.value).setView([15, -60], 3);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
+    
+    // PRUEBA: Usar tiles alternativos
+    // Opción 1: CartoDB (muy confiable)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '©OpenStreetMap, ©CartoDB',
+      subdomains: 'abcd',
+      maxZoom: 19
     }).addTo(map);
     
+    // O Opción 2: ESRI (alternativa)
+    // L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+    //   attribution: 'Tiles © Esri'
+    // }).addTo(map);
+    
+    console.log('TileLayer CartoDB añadido');
+    
+    // Forzar redimensionamiento
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+    
     await loadEgresados();
+    
   } catch (err) {
     error.value = 'Error al cargar el mapa: ' + err.message;
     loading.value = false;
+    console.error('Error detallado:', err);
   }
 };
-
 const getCountryInfo = (countryName) => {
   if (!countryName) return { code: '??', coordinates: [0, 0] };
   let countryInfo = countryMapping[countryName];

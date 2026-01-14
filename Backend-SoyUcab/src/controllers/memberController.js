@@ -342,12 +342,45 @@ const memberController = {
         influencer = false, tutor = false, tipo_miembro, semestre,
         carrera_programa, facultad, promedio, email_dominio_estudiante,
         fecha_acto_grado, pais, estado_egresado, categoria_profesor,
-        dedicacion_profesor, fecha_ingreso_profesor
+        dedicacion_profesor, fecha_ingreso_profesor,
+        fecha_inicio_rol = new Date().toISOString().split('T')[0] // Añadido
       } = req.body;
 
       await db.query('BEGIN');
 
       try {
+        // 1. VALIDACIONES PARA ESTUDIANTE
+        let emailUcabValido = null;
+        
+        if (tipo_miembro === 'Estudiante') {
+          // Asegurar que email personal NO sea un email UCAB
+          if (email.endsWith('@est.ucab.edu.ve') || email.endsWith('@ucab.edu.ve')) {
+            throw new Error('El email personal no puede ser un email institucional UCAB. Use un email personal (gmail, hotmail, etc.)');
+          }
+          
+          // Validar/crear email UCAB
+          if (email_dominio_estudiante) {
+            // Si se proporciona, validar que termine correctamente
+            if (!email_dominio_estudiante.endsWith('@est.ucab.edu.ve')) {
+              // Intentar corregir: si termina en @ucab.edu.ve, cambiar a @est.ucab.edu.ve
+              if (email_dominio_estudiante.endsWith('@ucab.edu.ve')) {
+                emailUcabValido = email_dominio_estudiante.replace('@ucab.edu.ve', '@est.ucab.edu.ve');
+              } else {
+                throw new Error('El email_dominio_estudiante debe terminar en @est.ucab.edu.ve');
+              }
+            } else {
+              emailUcabValido = email_dominio_estudiante;
+            }
+          } else {
+            // Generar automáticamente a partir del nombre de usuario
+            const username = nombre_usuario.toLowerCase().replace(/[^a-z0-9]/g, '');
+            emailUcabValido = `${username}@est.ucab.edu.ve`;
+          }
+          
+          console.log(`Email UCAB: ${emailUcabValido}`);
+        }
+
+        // 2. Crear miembro
         await db.query(
           `INSERT INTO soyucab.miembro 
             (email, telefono, biografia, estado_cuenta, privacidad_perfil, nombre_usuario, contraseña, fecha_registro)
@@ -355,6 +388,7 @@ const memberController = {
           [email, telefono, biografia || '', estado_cuenta, privacidad_perfil, nombre_usuario, contraseña]
         );
 
+        // 3. Crear persona
         await db.query(
           `INSERT INTO soyucab.persona 
             (email_persona, ci, nombres, apellidos, sexo, fecha_nacimiento, ocupacion_actual, empresa_actual, influencer, tutor)
@@ -362,24 +396,106 @@ const memberController = {
           [email, ci, nombres, apellidos, sexo, fecha_nacimiento, ocupacion_actual, empresa_actual, influencer, tutor]
         );
 
+        // 4. Si es Estudiante
         if (tipo_miembro === 'Estudiante') {
+          // 4.1. Crear rol institucional
+          await db.query(
+            `INSERT INTO soyucab.rolInstitucional 
+              (email_persona, tipo_rol, fecha_inicio, estatus)
+              VALUES ($1, $2, $3, $4)`,
+            [email, 'Estudiante', fecha_inicio_rol, 'Activo']
+          );
+
+          // 4.2. Crear estudiante (CORREGIDO: añadir fecha_inicio_rol)
           await db.query(
             `INSERT INTO soyucab.estudiante 
-              (email_estudiante, ci_estudiante, semestre, carrera_programa, facultad, promedio, email_dominio_estudiante)
-              VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [email, ci, semestre, carrera_programa, facultad, promedio, email_dominio_estudiante]
+              (email_estudiante, fecha_inicio_rol, tipo_rol, ci_estudiante, semestre, carrera_programa, facultad, promedio, email_dominio_estudiante)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [
+              email,                    // email_estudiante (EMAIL PERSONAL)
+              fecha_inicio_rol,         // fecha_inicio_rol (OBLIGATORIO)
+              'Estudiante',             // tipo_rol
+              ci,                       // ci_estudiante
+              semestre,                 // semestre
+              carrera_programa,         // carrera_programa
+              facultad,                 // facultad
+              promedio,                 // promedio
+              emailUcabValido           // email_dominio_estudiante (DEBE terminar en @est.ucab.edu.ve)
+            ]
+          );
+        }
+
+        // 5. Si es Egresado
+        if (tipo_miembro === 'Egresado') {
+          await db.query(
+            `INSERT INTO soyucab.rolInstitucional 
+              (email_persona, tipo_rol, fecha_inicio, estatus)
+              VALUES ($1, $2, $3, $4)`,
+            [email, 'Egresado', fecha_inicio_rol, 'Graduado']
+          );
+
+          await db.query(
+            `INSERT INTO soyucab.egresado 
+              (email_egresado, fecha_inicio_rol, tipo_rol, ci_egresado, facultad, fecha_acto_grado, pais, estado)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [
+              email,              // email_egresado
+              fecha_inicio_rol,   // fecha_inicio_rol
+              'Egresado',         // tipo_rol
+              ci,                 // ci_egresado
+              facultad,           // facultad
+              fecha_acto_grado,   // fecha_acto_grado
+              pais,               // pais
+              estado_egresado     // estado
+            ]
+          );
+        }
+
+        // 6. Si es Profesor
+        if (tipo_miembro === 'Profesor') {
+          await db.query(
+            `INSERT INTO soyucab.rolInstitucional 
+              (email_persona, tipo_rol, fecha_inicio, estatus)
+              VALUES ($1, $2, $3, $4)`,
+            [email, 'Profesor', fecha_inicio_rol, 'Activo']
+          );
+
+          await db.query(
+            `INSERT INTO soyucab.profesor 
+              (email_persona, tipo_rol, fecha_inicio, fecha_ingreso, categoria, dedicacion)
+              VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              email,                    // email_persona
+              'Profesor',               // tipo_rol
+              fecha_inicio_rol,         // fecha_inicio
+              fecha_ingreso_profesor,   // fecha_ingreso
+              categoria_profesor,       // categoria
+              dedicacion_profesor       // dedicacion
+            ]
           );
         }
 
         await db.query('COMMIT');
-        res.status(201).json({ success: true, message: 'Miembro creado exitosamente' });
+        res.status(201).json({ 
+          success: true, 
+          message: 'Miembro creado exitosamente',
+          data: {
+            email_personal: email,
+            email_ucab: tipo_miembro === 'Estudiante' ? emailUcabValido : null
+          }
+        });
 
       } catch (error) {
         await db.query('ROLLBACK');
+        console.error('Error en transacción:', error);
         throw error;
       }
     } catch (error) {
-      res.status(500).json({ success: false, error: 'Error al crear miembro' });
+      console.error('Error al crear miembro:', error);
+      res.status(400).json({ 
+        success: false, 
+        error: error.message || 'Error al crear miembro'
+      });
     }
   },
 
@@ -428,7 +544,287 @@ const memberController = {
     } catch (error) {
       res.status(500).json({ success: false, error: 'Error al desactivar' });
     }
-  }
+  },
+
+  // Buscar usuarios 
+
+async searchMembers(req, res) {
+        try {
+            const { q } = req.query;
+            
+            console.log("🔍 Buscando usuarios con query:", q);
+            
+            if (!q || q.length < 2) {
+                return res.json({ success: true, data: [] });
+            }
+            
+            const result = await db.query(
+                `SELECT email, nombre_usuario, nombres, apellidos 
+                 FROM soyucab.miembro 
+                 WHERE LOWER(nombre_usuario) LIKE LOWER($1) 
+                 OR LOWER(nombres) LIKE LOWER($1)
+                 OR LOWER(apellidos) LIKE LOWER($1)
+                 OR LOWER(email) LIKE LOWER($1)
+                 LIMIT 10`,
+                [`%${q}%`]
+            );
+            
+            console.log("✅ Usuarios encontrados:", result.rows.length);
+            res.json({ success: true, data: result.rows });
+        } catch (error) {
+            console.error("❌ Error buscando miembros:", error);
+            res.status(500).json({ success: false, error: 'Error en búsqueda' });
+        }
+    },
+    // Búsqueda avanzada con filtros múltiples y grados de separación
+async advancedSearch(req, res) {
+    try {
+        const { 
+            search, 
+            tipo, 
+            genero, 
+            facultad, 
+            carrera, 
+            pais,
+            find_connections // Si es true, busca conexiones del usuario actual
+        } = req.query;
+        
+        const userEmail = req.query.user_email; // Email del usuario que busca (para calcular conexiones)
+
+        console.log("🔍 Búsqueda avanzada:", { search, tipo, genero, facultad, carrera, pais, userEmail });
+
+        let query = `
+            WITH RECURSIVE conexiones AS (
+                -- Nivel 0: El usuario mismo
+                SELECT 
+                    m.email,
+                    m.email as email_inicial,
+                    0 as grado_separacion,
+                    ARRAY[m.email] as ruta
+                FROM soyucab.miembro m
+                WHERE m.email = $1
+                
+                UNION
+                
+                -- Niveles 1, 2, 3: Conexiones indirectas
+                SELECT 
+                    r.usuario_destino as email,
+                    c.email_inicial,
+                    c.grado_separacion + 1 as grado_separacion,
+                    c.ruta || r.usuario_destino as ruta
+                FROM conexiones c
+                JOIN soyucab.relacion r ON c.email = r.usuario_origen
+                WHERE r.estado = 'aceptada'
+                AND c.grado_separacion < 3
+                AND NOT (r.usuario_destino = ANY(c.ruta)) -- Evitar ciclos
+            )
+            SELECT DISTINCT
+                m.email,
+                m.nombre_usuario,
+                p.nombres,
+                p.apellidos,
+                p.sexo,
+                CASE 
+                    WHEN e.email_estudiante IS NOT NULL THEN 'Estudiante'
+                    WHEN eg.email_egresado IS NOT NULL THEN 'Egresado'
+                    WHEN EXISTS (
+                        SELECT 1 FROM soyucab.profesor pr 
+                        WHERE pr.email_persona = m.email
+                    ) THEN 'Profesor'
+                    WHEN EXISTS (
+                        SELECT 1 FROM soyucab.personal_administrativo pa 
+                        WHERE pa.email_persona = m.email
+                    ) THEN 'Personal Administrativo'
+                    WHEN EXISTS (
+                        SELECT 1 FROM soyucab.personal_obrero po 
+                        WHERE po.email_persona = m.email
+                    ) THEN 'Personal Obrero'
+                    ELSE 'Miembro'
+                END as tipo_miembro,
+                e.facultad as facultad,
+                e.carrera_programa,
+                e.semestre,
+                eg.pais,
+                eg.estado as estado_egresado,
+                eg.facultad as facultad_egresado,
+                COALESCE(c.grado_separacion, 999) as grado_separacion,
+                CASE 
+                    WHEN c.grado_separacion = 0 THEN 'Tú'
+                    WHEN c.grado_separacion = 1 THEN 'Conexión directa'
+                    WHEN c.grado_separacion = 2 THEN '2do grado'
+                    WHEN c.grado_separacion = 3 THEN '3er grado'
+                    ELSE 'Sin conexión'
+                END as tipo_conexion
+            FROM soyucab.miembro m
+            JOIN soyucab.persona p ON m.email = p.email_persona
+            LEFT JOIN soyucab.estudiante e ON m.email = e.email_estudiante
+            LEFT JOIN soyucab.egresado eg ON m.email = eg.email_egresado
+            LEFT JOIN conexiones c ON m.email = c.email
+            WHERE m.email != $1
+        `;
+
+        const params = [userEmail || ''];
+        let paramCount = 1;
+
+        // Filtro por búsqueda de texto
+        if (search && search.trim()) {
+            paramCount++;
+            query += ` AND (
+                LOWER(m.nombre_usuario) LIKE LOWER($${paramCount})
+                OR LOWER(p.nombres) LIKE LOWER($${paramCount})
+                OR LOWER(p.apellidos) LIKE LOWER($${paramCount})
+                OR LOWER(m.email) LIKE LOWER($${paramCount})
+            )`;
+            params.push(`%${search.trim()}%`);
+        }
+
+        // Filtro por tipo de usuario
+        if (tipo) {
+            switch(tipo) {
+                case 'Estudiante':
+                    query += ` AND e.email_estudiante IS NOT NULL`;
+                    break;
+                case 'Egresado':
+                    query += ` AND eg.email_egresado IS NOT NULL`;
+                    break;
+                case 'Profesor':
+                    query += ` AND EXISTS (SELECT 1 FROM soyucab.profesor pr WHERE pr.email_persona = m.email)`;
+                    break;
+                case 'Personal Administrativo':
+                    query += ` AND EXISTS (SELECT 1 FROM soyucab.personal_administrativo pa WHERE pa.email_persona = m.email)`;
+                    break;
+                case 'Personal Obrero':
+                    query += ` AND EXISTS (SELECT 1 FROM soyucab.personal_obrero po WHERE po.email_persona = m.email)`;
+                    break;
+            }
+        }
+
+        // Filtro por género
+        if (genero) {
+            paramCount++;
+            query += ` AND p.sexo = $${paramCount}`;
+            params.push(genero);
+        }
+
+        // Filtro por facultad
+        if (facultad) {
+            paramCount++;
+            query += ` AND (e.facultad ILIKE $${paramCount} OR eg.facultad ILIKE $${paramCount})`;
+            params.push(`%${facultad}%`);
+        }
+
+        // Filtro por carrera
+        if (carrera) {
+            paramCount++;
+            query += ` AND e.carrera_programa ILIKE $${paramCount}`;
+            params.push(`%${carrera}%`);
+        }
+
+        // Filtro por país (solo egresados)
+        if (pais) {
+            paramCount++;
+            query += ` AND eg.pais = $${paramCount}`;
+            params.push(pais.toUpperCase());
+        }
+
+        // Ordenar por grado de separación (conexiones más cercanas primero)
+        query += ` ORDER BY grado_separacion ASC, p.apellidos ASC LIMIT 50`;
+
+        console.log("📊 Ejecutando query con params:", params);
+        const result = await db.query(query, params);
+
+        console.log(`✅ Resultados encontrados: ${result.rows.length}`);
+        
+        res.json({ 
+            success: true, 
+            data: result.rows,
+            total: result.rows.length
+        });
+
+    } catch (error) {
+        console.error('❌ Error en búsqueda avanzada:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Error en búsqueda avanzada',
+            details: error.message 
+        });
+    }
+},
+// En memberController.js, agrega este método antes de advancedSearch:
+
+async getMemberByEmailSimple(req, res) {
+    try {
+        const { email } = req.query;
+        
+        if (!email) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Email requerido' 
+            });
+        }
+
+        console.log("🔍 Buscando miembro:", email);
+
+        const query = `
+            SELECT 
+                m.email,
+                m.nombre_usuario,
+                m.telefono,
+                m.biografia,
+                m.estado_cuenta,
+                m.privacidad_perfil,
+                p.nombres,
+                p.apellidos,
+                p.ci,
+                p.sexo,
+                p.fecha_nacimiento,
+                e.semestre,
+                e.carrera_programa,
+                e.facultad as facultad_estudiante,
+                eg.facultad as facultad_egresado,
+                eg.pais,
+                CASE 
+                    WHEN e.email_estudiante IS NOT NULL THEN 'Estudiante'
+                    WHEN eg.email_egresado IS NOT NULL THEN 'Egresado'
+                    WHEN EXISTS (SELECT 1 FROM soyucab.profesor pr WHERE pr.email_persona = m.email) THEN 'Profesor'
+                    WHEN EXISTS (SELECT 1 FROM soyucab.personal_administrativo pa WHERE pa.email_persona = m.email) THEN 'Personal Administrativo'
+                    WHEN EXISTS (SELECT 1 FROM soyucab.personal_obrero po WHERE po.email_persona = m.email) THEN 'Personal Obrero'
+                    ELSE 'Miembro'
+                END as tipo_miembro
+            FROM soyucab.miembro m
+            LEFT JOIN soyucab.persona p ON m.email = p.email_persona
+            LEFT JOIN soyucab.estudiante e ON m.email = e.email_estudiante
+            LEFT JOIN soyucab.egresado eg ON m.email = eg.email_egresado
+            WHERE m.email = $1
+        `;
+
+        const result = await db.query(query, [email]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Usuario no encontrado' 
+            });
+        }
+
+        console.log("✅ Usuario encontrado:", result.rows[0].nombre_usuario);
+        res.json({ 
+            success: true, 
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('❌ Error en getMemberByEmailSimple:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Error al obtener miembro',
+            details: error.message 
+        });
+    }
+},
+
+
+
 };
 
 module.exports = memberController;

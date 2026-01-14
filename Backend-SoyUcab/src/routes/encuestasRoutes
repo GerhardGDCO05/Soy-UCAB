@@ -1,0 +1,39 @@
+const express = require('express');
+const router = express.Router();
+const encuestaController = require('../controllers/encuestaController');
+
+console.log(' ARCHIVO DE RUTAS CARGADO ');
+
+// Middleware que se ejecuta en TODAS las peticiones a /api/encuestas
+router.use((req, res, next) => {
+    console.log(' ===== MIDDLEWARE ENCUESTAS ===== ');
+    console.log(' Método:', req.method);
+    console.log(' Path:', req.path);
+    console.log(' URL completa:', req.originalUrl);
+    console.log(' =============================== ');
+    next();
+});
+
+// RUTAS ESPECÍFICAS PRIMERO
+router.post('/publicar', encuestaController.publicarEncuesta);
+router.get('/check-voto', encuestaController.checkVoto);
+router.post('/votar', encuestaController.votarEncuesta);
+
+// ESTA ES LA RUTA IMPORTANTE
+router.get('/mis-encuestas/:email', (req, res) => {
+    console.log(' RUTA /mis-encuestas/:email ALCANZADA');
+    console.log(' Email recibido:', req.params.email);
+    encuestaController.getMisEncuestas(req, res);
+});
+
+// RUTAS GENERALES
+router.post('/', encuestaController.createEncuesta);
+router.get('/', encuestaController.getEncuestas);
+
+// RUTAS CON PARÁMETROS AL FINAL
+router.delete('/:tipo_encuesta/:titulo', encuestaController.deleteEncuesta);
+router.get('/:tipo_encuesta/:titulo', encuestaController.getEncuestaDetalle);
+
+console.log('✅ Todas las rutas de encuestas registradas');
+
+module.exports = router;
