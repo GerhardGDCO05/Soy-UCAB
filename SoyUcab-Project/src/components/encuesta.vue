@@ -405,56 +405,68 @@ async loadMisEncuestas() {
   }
 },
 
-    async verEncuesta(encuesta) {
-      try {
-        const res = await axios.get(
-          `http://localhost:3000/api/encuestas/${encuesta.tipo_encuesta}/${encuesta.titulo}`
-        )
-        if (res.data.success) {
-          this.encuestaActual = res.data.data
-          
-          // Verificar si ya votó
-          const votoRes = await axios.get('http://localhost:3000/api/encuestas/check-voto', {
-            params: {
-              tipo_encuesta: encuesta.tipo_encuesta,
-              titulo: encuesta.titulo,
-              email: this.userEmail
-            }
-          })
-          this.yaVoto = votoRes.data.yaVoto
-          
-          this.showVotarModal = true
-        }
-      } catch (e) {
-        console.error('Error cargando encuesta:', e)
-        alert('Error al cargar la encuesta')
-      }
-    },
-
-    async votar() {
-      if (!this.opcionSeleccionada) return
+  async verEncuesta(encuesta) {
+  try {
+    // ✅ Codificar los parámetros de la URL
+    const tipoEncoded = encodeURIComponent(encuesta.tipo_encuesta)
+    const tituloEncoded = encodeURIComponent(encuesta.titulo)
+    
+    console.log('🔍 Cargando encuesta:', { 
+      original: encuesta.titulo, 
+      encoded: tituloEncoded 
+    })
+    
+    const res = await axios.get(
+      `http://localhost:3000/api/encuestas/${tipoEncoded}/${tituloEncoded}`
+    )
+    
+    if (res.data.success) {
+      this.encuestaActual = res.data.data
       
-      this.votando = true
-      try {
-        const res = await axios.post('http://localhost:3000/api/encuestas/votar', {
-          tipo_encuesta: this.encuestaActual.tipo_encuesta,
-          titulo_encuesta: this.encuestaActual.titulo,
-          numero_opcion: this.opcionSeleccionada,
-          email_encuestado: this.userEmail
-        })
-        
-        if (res.data.success) {
-          alert('¡Voto registrado exitosamente!')
-          this.yaVoto = true
-          await this.verEncuesta(this.encuestaActual)
+      // Verificar si ya votó
+      const votoRes = await axios.get('http://localhost:3000/api/encuestas/check-voto', {
+        params: {
+          tipo_encuesta: encuesta.tipo_encuesta,
+          titulo: encuesta.titulo,
+          email: this.userEmail
         }
-      } catch (e) {
-        console.error('Error votando:', e)
-        alert(e.response?.data?.error || 'Error al registrar el voto')
-      } finally {
-        this.votando = false
-      }
-    },
+      })
+      this.yaVoto = votoRes.data.yaVoto
+      
+      this.showVotarModal = true
+    }
+  } catch (e) {
+    console.error('Error cargando encuesta:', e)
+    console.error('Respuesta del servidor:', e.response?.data)
+    alert('Error al cargar la encuesta')
+  }
+},
+
+async votar() {
+  if (!this.opcionSeleccionada) return
+  
+  this.votando = true
+  try {
+    const res = await axios.post('http://localhost:3000/api/encuestas/votar', {
+      tipo_encuesta: this.encuestaActual.tipo_encuesta,
+      titulo_encuesta: this.encuestaActual.titulo,
+      numero_opcion: this.opcionSeleccionada,
+      email_encuestado: this.userEmail
+    })
+    
+    if (res.data.success) {
+      alert('¡Voto registrado exitosamente!')
+      this.yaVoto = true
+      // ✅ Recargar la encuesta con los datos actualizados
+      await this.verEncuesta(this.encuestaActual)
+    }
+  } catch (e) {
+    console.error('Error votando:', e)
+    alert(e.response?.data?.error || 'Error al registrar el voto')
+  } finally {
+    this.votando = false
+  }
+},
 
     addOpcion() {
       const nuevoNumero = this.newEncuesta.opciones.length + 1
