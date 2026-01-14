@@ -676,19 +676,52 @@ export default {
         alert("El nombre del grupo es obligatorio");
         return;
       }
+      
       this.creatingGroup = true;
       try {
-        const resp = await api.createGroup(this.newGroup);
+        // Obtener el email directamente desde this.userEmail que ya tienes
+        if (!this.userEmail) {
+          alert("No se pudo obtener el email del usuario. Por favor, inicia sesión nuevamente.");
+          this.creatingGroup = false;
+          return;
+        }
+        
+        console.log('Email del creador (desde this.userEmail):', this.userEmail);
+        
+        // Crear el objeto con todos los campos necesarios
+        const groupData = {
+          nombre: this.newGroup.nombre.trim(),
+          descripcion: this.newGroup.descripcion || '',
+          categoria: this.newGroup.categoria || 'academico',
+          privacidad: this.newGroup.privacidad || 'publico',
+          requisitos_ingreso: this.newGroup.requisitos_ingreso || '',
+          // Incluir el email aquí para que usuarioServices lo use
+          userEmail: this.userEmail  // ¡NUEVO: enviar el email directamente!
+        };
+        
+        console.log('Datos completos enviando al backend:', groupData);
+        
+        // Llamar al servicio
+        const resp = await api.createGroup(groupData);
+        
         if (resp.success) {
           this.showCreateGroupForm = false;
-          this.newGroup = { nombre: '', descripcion: '', categoria: 'academico', privacidad: 'publico' };
+          // Resetear formulario
+          this.newGroup = { 
+            nombre: '', 
+            descripcion: '', 
+            categoria: 'academico', 
+            privacidad: 'publico',
+            requisitos_ingreso: ''
+          };
           await this.loadMyGroups();
           alert("¡Grupo creado con éxito!");
         } else {
           alert("Error al crear grupo: " + (resp.error || "Desconocido"));
         }
       } catch (e) {
-        console.error(e);
+        console.error('Error completo:', e);
+        alert("Error: " + (e.message || "Error de conexión"));
       } finally {
         this.creatingGroup = false;
       }
